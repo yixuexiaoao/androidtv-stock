@@ -197,7 +197,7 @@ class ModelTest {
     }
 
     @Test fun corruptConfigFallsBack() {
-        val cfg = AppConfig.fromJson(JSONObject("""{"stocks":[{"code":"bad"},{"code":"600519"},{"code":"sh600519"}]}"""))
+        val cfg = AppConfig.fromJson(JSONObject("""{"stocks":[{"code":"b d!"},{"code":"600519"},{"code":"sh600519"}]}"""))
         assertEquals(1, cfg.stocks.size)
         assertEquals(AppSettings(), cfg.settings)
     }
