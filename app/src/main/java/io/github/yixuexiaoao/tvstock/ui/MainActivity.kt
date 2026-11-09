@@ -1,7 +1,6 @@
 package io.github.yixuexiaoao.tvstock.ui
 
 import android.app.Activity
-import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
@@ -14,7 +13,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.FrameLayout
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -66,6 +64,7 @@ class MainActivity : Activity(), AppCore.Listener {
     private var burnInStep = 0
     private var pendingFocusIndex: Int? = null
     private var appliedTheme = ""
+    private var screenKept: Boolean? = null
     private var lastSoundMs = 0L
 
     private val clockTick = object : Runnable {
@@ -79,6 +78,7 @@ class MainActivity : Activity(), AppCore.Listener {
                 applyConfig()
                 renderAlerts()
             }
+            updateKeepScreen()
             UpdateManager.autoCheckIfDue()
             handler.postDelayed(this, 1000)
         }
@@ -116,7 +116,6 @@ class MainActivity : Activity(), AppCore.Listener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         buildViews()
         WebService.start(this)
         AppCore.repo.start()
@@ -167,6 +166,22 @@ class MainActivity : Activity(), AppCore.Listener {
         }
     }
 
+    /** 规范要求静态界面不要一直阻止屏保；默认只在交易时段保持亮屏。 */
+    private fun updateKeepScreen() {
+        val keep = when (config.settings.keepScreen) {
+            "ALWAYS" -> true
+            "NEVER" -> false
+            else -> MarketClock.isTradingTime(System.currentTimeMillis())
+        }
+        if (keep == screenKept) return
+        screenKept = keep
+        if (keep) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
+
     private fun applyGearStyle() {
         val p = Palette.of(config.settings)
         gear.setTextColor(if (gear.isFocused) Color.BLACK else p.subText)
@@ -179,8 +194,14 @@ class MainActivity : Activity(), AppCore.Listener {
         AppCore.repo.foreground = true
         lastPageFlipMs = System.currentTimeMillis()
         applyConfig()
+        updateKeepScreen()
         renderAlerts()
         if (AppCore.activeAlerts.isNotEmpty()) startFlash()
+        if (!config.settings.guideShown) {
+            // 先记下已显示，避免配置刷新或返回界面时重复弹出
+            AppCore.updateSettings(JSONObject().put("guideShown", true))
+            handler.postDelayed({ if (!isFinishing) StockDialogs.help(this) }, GUIDE_DELAY_MS)
+        }
         AppCore.repo.wake()
         onUpdate()
         handler.post(clockTick)
@@ -295,6 +316,8 @@ class MainActivity : Activity(), AppCore.Listener {
             bindCells()
             return
         }
+        // 排序会让股票换格子，焦点跟着股票走
+        val focusedCode = cells.firstOrNull { it.isFocused }?.stock?.code
         val minuteWanted = HashSet<String>()
         val klineWanted = HashSet<String>()
         cells.forEachIndexed { i, cell ->
@@ -320,6 +343,9 @@ class MainActivity : Activity(), AppCore.Listener {
             }
             cell.isFocusable = stock != null
             cell.invalidate()
+        }
+        if (focusedCode != null) {
+            cells.firstOrNull { it.stock?.code == focusedCode && !it.isFocused }?.requestFocus()
         }
         val repo = AppCore.repo
         val chartsChanged = repo.wantMinute != minuteWanted || repo.wantKline != klineWanted
@@ -516,7 +542,9 @@ class MainActivity : Activity(), AppCore.Listener {
             add((if (config.settings.privacy) "关闭隐私模式" else "开启隐私模式") to ::togglePrivacy)
             add(("切换排序（当前：" + StockSort.label(config.settings.sortMode) + "）") to ::cycleSort)
             add("切换布局" to ::cycleLayout)
+            add("最近提醒" to { StockDialogs.recentAlerts(this@MainActivity) })
             add("后台二维码" to ::showWebQr)
+            add("使用帮助" to { StockDialogs.help(this@MainActivity) })
             add("打开设置" to ::openSettings)
         }
         val quote = code?.let { AppCore.repo.quotes[it] }
@@ -731,33 +759,14 @@ class MainActivity : Activity(), AppCore.Listener {
         }
     }
 
-    private fun showWebQr() {
-        val url = AppCore.webUrl
-        if (url.isEmpty()) {
-            toast("Web 后台未启动")
-            return
-        }
-        val box = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(dp(16), dp(16), dp(16), dp(16))
-        }
-        box.addView(ImageView(this).apply { setImageBitmap(QrCode.create(url, dp(220))) })
-        box.addView(TextView(this).apply {
-            text = "手机扫码或在浏览器打开\n$url"
-            gravity = Gravity.CENTER
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
-        })
-        AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
-            .setView(box)
-            .setPositiveButton("关闭", null)
-            .show()
-    }
+    private fun showWebQr() = StockDialogs.webQr(this)
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     private companion object {
         const val MUTE_MINUTES = 30
+        /** 等 Web 服务启动后再弹引导，这样二维码能显示 */
+        const val GUIDE_DELAY_MS = 1500L
         /** 同一轮多只股票同时触发时只播一次，避免声音混在一起 */
         const val SOUND_GAP_MS = 1500L
         val BURN_IN_OFFSETS = listOf(0 to 0, 2 to 0, 2 to 2, 0 to 2, -2 to 2, -2 to 0, -2 to -2, 0 to -2, 2 to -2)

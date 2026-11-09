@@ -108,6 +108,18 @@ class ModelTest {
         assertTrue(s.logVerbose)
     }
 
+    @Test fun flashSpeedStaysBelowPhotosensitiveLimit() {
+        assertEquals(AppSettings.FLASH_MIN_MS, AppSettings().merged(JSONObject("""{"flashSpeedMs":50}""")).flashSpeedMs)
+    }
+
+    @Test fun newSettingsValidated() {
+        val s = AppSettings().merged(JSONObject("""{"keepScreen":"BAD","alertFrequency":"BAD","alertCooldownMin":9999,"guideShown":true}"""))
+        assertEquals("TRADING", s.keepScreen)
+        assertEquals("EVERY", s.alertFrequency)
+        assertEquals(240, s.alertCooldownMin)
+        assertTrue(s.guideShown)
+    }
+
     @Test fun configRoundTrip() {
         val cfg = AppConfig(
             AppSettings().merged(JSONObject("""{"layoutId":"1+5","fontScale":120,"alertModes":["FULLSCREEN","SOUND"]}""")),

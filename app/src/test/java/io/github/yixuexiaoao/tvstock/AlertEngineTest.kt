@@ -27,7 +27,28 @@ class AlertEngineTest {
 
     private val stock = StockConfig("sh600519", targetHigh = 110.0, targetLow = 90.0)
 
+    @Test fun cooldownStopsRapidReCrossing() {
+        val e = AlertEngine()
+        assertEquals(1, e.evaluate(stock, quote(111.0), settings, trading).size)
+        assertTrue(e.evaluate(stock, quote(105.0), settings, trading + 30_000).isEmpty())
+        // 3 分钟冷却内再次穿越不响
+        assertTrue(e.evaluate(stock, quote(111.0), settings, trading + 60_000).isEmpty())
+        // 冷却结束后条件仍满足，补一次提醒，之后不再重复
+        assertEquals(1, e.evaluate(stock, quote(111.0), settings, trading + 181_000).size)
+        assertTrue(e.evaluate(stock, quote(111.0), settings, trading + 240_000).isEmpty())
+    }
+
+    @Test fun dailyFrequencyFiresOncePerDay() {
+        val daily = settings.copy(alertFrequency = "DAILY", alertTradingOnly = false)
+        val e = AlertEngine()
+        assertEquals(1, e.evaluate(stock, quote(111.0), daily, trading).size)
+        assertTrue(e.evaluate(stock, quote(105.0), daily, trading + 3600_000).isEmpty())
+        assertTrue(e.evaluate(stock, quote(111.0), daily, trading + 3600_000 * 2).isEmpty())
+        assertEquals(1, e.evaluate(stock, quote(111.0), daily, trading + 3600_000 * 24).size)
+    }
+
     @Test fun firesOnceThenRearmsAfterLeaving() {
+        val settings = settings.copy(alertCooldownMin = 0)
         val e = AlertEngine()
         assertTrue(e.evaluate(stock, quote(105.0), settings, trading).isEmpty())
         val fired = e.evaluate(stock, quote(110.0), settings, trading)

@@ -264,7 +264,7 @@ class StockCellView(context: Context) : View(context) {
         val changeW = right - changeX
         setFont(base * 1.2f, color, bold = true)
         val changeText = if (q.hasTrade) Format.signed(q.change, q.decimals) else "未成交"
-        val pctText = if (q.hasTrade) Format.percent(q.changePct) else "--"
+        val pctText = if (q.hasTrade) Format.trendPercent(q.changePct) else "--"
         shrinkToFit(if (changeText.length > pctText.length) changeText else pctText, changeW, base * 1.2f)
         c.drawText(pctText, changeX, y - paint.textSize * 1.25f, paint)
         c.drawText(changeText, changeX, y, paint)
@@ -341,7 +341,7 @@ class StockCellView(context: Context) : View(context) {
 
         val headerSize = base * 1.25f
         val top = pad + headerSize
-        val pctText = if (q.hasTrade) Format.percent(q.changePct) else "未成交"
+        val pctText = if (q.hasTrade) Format.trendPercent(q.changePct) else "未成交"
         val priceText = Format.price(q.displayPrice, q.decimals)
         setFont(headerSize, color, bold = true)
         val pctW = paint.measureText(pctText)
@@ -385,7 +385,7 @@ class StockCellView(context: Context) : View(context) {
         x += paint.measureText(StockCodes.shortCode(s.code)) + base
         setFont(base * 1.9f, color, bold = true)
         val line = Format.price(q.displayPrice, q.decimals) + "  " +
-            (if (q.hasTrade) Format.signed(q.change, q.decimals) + "  " + Format.percent(q.changePct) else "未成交")
+            (if (q.hasTrade) Format.signed(q.change, q.decimals) + "  " + Format.trendPercent(q.changePct) else "未成交")
         drawLeft(c, line, x, y, chartRight - x)
 
         val rows = holdingLines(s, q)

@@ -6,11 +6,14 @@ import android.text.Editable
 import android.text.InputType
 import android.text.TextWatcher
 import android.util.TypedValue
+import android.view.Gravity
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import io.github.yixuexiaoao.tvstock.AppCore
+import io.github.yixuexiaoao.tvstock.data.MarketClock
 import io.github.yixuexiaoao.tvstock.model.StockCodes
 import io.github.yixuexiaoao.tvstock.model.StockConfig
 import io.github.yixuexiaoao.tvstock.model.TradeError
@@ -171,6 +174,59 @@ object StockDialogs {
             if (s.trades.isNotEmpty()) add("撤销上一笔记账" to { undoTrade(activity, code) })
         }
     }
+
+    private fun qrBox(activity: Activity, url: String, caption: String): LinearLayout = LinearLayout(activity).apply {
+        orientation = LinearLayout.VERTICAL
+        gravity = Gravity.CENTER
+        val pad = dp(activity, 16)
+        setPadding(pad, pad, pad, pad)
+        if (url.isNotEmpty()) addView(ImageView(activity).apply { setImageBitmap(QrCode.create(url, dp(activity, 200))) })
+        addView(TextView(activity).apply {
+            text = caption
+            gravity = Gravity.CENTER
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+        })
+    }
+
+    fun webQr(activity: Activity) {
+        val url = AppCore.webUrl
+        if (url.isEmpty()) {
+            Toast.makeText(activity, "Web 后台未启动", Toast.LENGTH_SHORT).show()
+            return
+        }
+        builder(activity)
+            .setView(qrBox(activity, url, "手机扫码或在浏览器打开\n$url"))
+            .setPositiveButton("关闭", null)
+            .show()
+    }
+
+    /** 遥控器帮助，首次启动时也会显示。 */
+    fun help(activity: Activity, onClose: (() -> Unit)? = null) {
+        val url = AppCore.webUrl
+        val caption = (if (url.isEmpty()) "" else "手机扫码打开后台：$url\n\n") + HELP_TEXT
+        val dialog = builder(activity)
+            .setTitle("使用帮助")
+            .setView(qrBox(activity, url, caption))
+            .setPositiveButton("知道了", null)
+            .create()
+        dialog.setOnDismissListener { onClose?.invoke() }
+        dialog.show()
+    }
+
+    fun recentAlerts(activity: Activity) {
+        val list = AppCore.alertHistory().take(30)
+        val items = if (list.isEmpty()) arrayOf("暂无提醒") else list.map { e ->
+            MarketClock.timeString(e.timeMs).take(5) + "  " + e.message
+        }.toTypedArray()
+        builder(activity).setTitle("最近提醒").setItems(items, null).setPositiveButton("关闭", null).show()
+    }
+
+    private const val HELP_TEXT = "方向键：移动焦点，左右到边缘时翻页\n" +
+        "确认键：放大或还原当前股票\n" +
+        "长按确认键：快捷菜单（加仓、提醒、静音等）\n" +
+        "数字键：切换画面数，0 切换图文\n" +
+        "频道键：翻页；菜单键：设置\n" +
+        "红键静音，绿键隐私，黄键排序，蓝键布局"
 
     fun menu(activity: Activity, title: String, items: List<Pair<String, () -> Unit>>) {
         builder(activity)

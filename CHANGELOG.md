@@ -1,5 +1,25 @@
 # 更新日志
 
+## 1.0.0 - 2026-11-09
+
+### 新增
+- 提醒频率：每次穿越（默认 3 分钟冷却）或每天一次，解决价格在目标价附近来回穿越时反复提醒。
+- 首次启动的遥控器帮助和后台二维码；快捷菜单和设置中可查看帮助、最近提醒。
+- 保持亮屏选项，默认只在交易时段阻止屏保。
+- CI 增加 Android TV 模拟器冒烟测试，通过后才发布；截图保存在 `ci-screens` 分支。
+
+### 调整
+- 电视桌面 banner 增加应用名称（TV-BN），默认屏幕边距改为 16dp（TV-OV）。
+- 涨跌幅增加 ▲▼ 符号，不只依靠颜色区分。
+- 开启排序后，遥控器焦点跟随股票，而不是停在原格子。
+- 行情连续失败时逐步放慢请求（最长 60 秒），恢复后立即回到设定频率。
+- 闪烁间隔下限改为 200 毫秒，避免闪烁过快。
+- 合并重复的二维码弹窗代码。
+
+### 开源参考
+- ReactiveCircus/android-emulator-runner（CI 使用，Apache-2.0）：https://github.com/ReactiveCircus/android-emulator-runner
+- Android TV 应用质量规范：https://developer.android.com/docs/quality-guidelines/tv-app-quality
+
 ## 0.3.0 - 2026-11-09（开发版）
 
 ### 新增

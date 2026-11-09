@@ -12,7 +12,7 @@ import io.github.yixuexiaoao.tvstock.model.StockConfig
  * 可选 alertRepeatMin 在条件持续满足时周期性重复提醒。
  */
 class AlertEngine {
-    private data class Armed(var active: Boolean, var lastFiredMs: Long)
+    private data class Armed(var active: Boolean, var lastFiredMs: Long, var firedDate: String = "")
     private class PricePoint(val timeMs: Long, val price: Double)
 
     private val states = HashMap<String, Armed>()
@@ -52,11 +52,19 @@ class AlertEngine {
                 return
             }
             if (stale) return
+            val today = MarketClock.dateString(nowMs)
+            val sinceLast = nowMs - state.lastFiredMs
             val repeat = settings.alertRepeatMin
-            val due = !state.active || (repeat > 0 && nowMs - state.lastFiredMs >= repeat * 60_000L)
-            state.active = true
+            val due = when {
+                settings.alertFrequency == "DAILY" -> state.firedDate != today
+                !state.active -> sinceLast >= settings.alertCooldownMin * 60_000L
+                else -> repeat > 0 && sinceLast >= repeat * 60_000L
+            }
             if (due) {
+                // 只有真正提醒了才算“已触发”，冷却期内的穿越等冷却结束后仍会提醒
+                state.active = true
                 state.lastFiredMs = nowMs
+                state.firedDate = today
                 events += AlertEvent(nextId++, stock.code, name, kind, message(threshold), price, nowMs, modes, direction = direction)
             }
         }

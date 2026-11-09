@@ -2,3 +2,4 @@
 *.bat text eol=crlf
 *.jar binary
 *.keystore binary
+*.png binary

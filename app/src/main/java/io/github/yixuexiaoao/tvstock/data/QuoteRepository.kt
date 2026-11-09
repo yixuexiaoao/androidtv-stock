@@ -33,6 +33,7 @@ class QuoteRepository(
     private val klineFetchedAt = ConcurrentHashMap<String, Long>()
     private val inFlight = ConcurrentHashMap.newKeySet<String>()
     private var lastMissing: Set<String> = emptySet()
+    private var consecutiveFailures = 0
     private val chartErrorLoggedAt = ConcurrentHashMap<String, Long>()
 
     @Volatile var foreground = false
@@ -73,6 +74,7 @@ class QuoteRepository(
                 // 网络问题记警告；其他异常是代码缺陷，要带堆栈才能定位
                 if (t is java.io.IOException) AppLog.w(TAG, "行情获取失败", t) else AppLog.e(TAG, "行情处理异常", t)
             }
+            consecutiveFailures++
             lastError = t.message ?: t.javaClass.simpleName
         }
         schedule(if (wakePending.get()) 0 else nextDelayMs())
@@ -83,6 +85,8 @@ class QuoteRepository(
         val trading = MarketClock.isTradingTime(System.currentTimeMillis())
         var sec = if (trading) s.refreshSec else maxOf(s.refreshSec, s.idleRefreshSec)
         if (!foreground) sec = maxOf(sec, 30)
+        // 连续失败时逐步放慢（最多 60 秒），断网期间不空转，也减轻接口压力
+        if (consecutiveFailures > 0) sec = maxOf(sec, minOf(60, 1 shl minOf(consecutiveFailures, 6)))
         return sec * 1000L
     }
 
@@ -94,6 +98,7 @@ class QuoteRepository(
         list.forEach { quotes[it.code] = it }
         lastSuccessMs = System.currentTimeMillis()
         if (lastError != null) AppLog.i(TAG, "行情恢复正常")
+        consecutiveFailures = 0
         lastError = null
         AppLog.d(TAG, "请求 ${codes.size} 只，返回 ${list.size} 只，耗时 ${lastSuccessMs - started}ms")
         if (list.size < codes.size) {

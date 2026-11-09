@@ -179,7 +179,11 @@ data class AppSettings(
     val nightStart: String = "19:00",
     val colorScheme: String = "RED_UP",
     val gridGap: Int = 6,
-    val screenMargin: Int = 0,
+    /** 默认留一点边距，避免老电视过扫描裁掉文字（TV-OV） */
+    val screenMargin: Int = 16,
+    /** 保持亮屏：TRADING 只在交易时段，ALWAYS 一直，NEVER 跟随系统屏保 */
+    val keepScreen: String = "TRADING",
+    val guideShown: Boolean = false,
     val showHeader: Boolean = true,
     val showIndices: Boolean = true,
     val showClock: Boolean = true,
@@ -206,6 +210,10 @@ data class AppSettings(
     val speedWindowMin: Int = 5,
     val limitAlert: Boolean = false,
     val sortMode: String = StockSort.MANUAL,
+    /** EVERY：每次穿越都提醒（受冷却限制）；DAILY：同一条件每天只提醒一次 */
+    val alertFrequency: String = "EVERY",
+    /** 同一条件再次提醒的最短间隔，避免价格在目标价附近来回穿越时反复响 */
+    val alertCooldownMin: Int = 3,
     val alertRepeatMin: Int = 0,
     val alertTradingOnly: Boolean = true,
     val alertJumpPage: Boolean = true,
@@ -235,6 +243,8 @@ data class AppSettings(
         put("colorScheme", colorScheme)
         put("gridGap", gridGap)
         put("screenMargin", screenMargin)
+        put("keepScreen", keepScreen)
+        put("guideShown", guideShown)
         put("showHeader", showHeader)
         put("showIndices", showIndices)
         put("showClock", showClock)
@@ -260,6 +270,8 @@ data class AppSettings(
         put("speedWindowMin", speedWindowMin)
         put("limitAlert", limitAlert)
         put("sortMode", sortMode)
+        put("alertFrequency", alertFrequency)
+        put("alertCooldownMin", alertCooldownMin)
         put("alertRepeatMin", alertRepeatMin)
         put("alertTradingOnly", alertTradingOnly)
         put("alertJumpPage", alertJumpPage)
@@ -296,6 +308,8 @@ data class AppSettings(
             colorScheme = choice("colorScheme", colorScheme, listOf("RED_UP", "GREEN_UP")),
             gridGap = int("gridGap", gridGap, 0, 32),
             screenMargin = int("screenMargin", screenMargin, 0, 64),
+            keepScreen = choice("keepScreen", keepScreen, listOf("TRADING", "ALWAYS", "NEVER")),
+            guideShown = bool("guideShown", guideShown),
             showHeader = bool("showHeader", showHeader),
             showIndices = bool("showIndices", showIndices),
             showClock = bool("showClock", showClock),
@@ -310,7 +324,7 @@ data class AppSettings(
             burnInGuard = bool("burnInGuard", burnInGuard),
             alertModes = json.optJSONArray("alertModes")?.toStringList()?.filter { it in AlertModes.ALL } ?: alertModes,
             alertDurationSec = int("alertDurationSec", alertDurationSec, 0, 3600),
-            flashSpeedMs = int("flashSpeedMs", flashSpeedMs, 150, 3000),
+            flashSpeedMs = int("flashSpeedMs", flashSpeedMs, FLASH_MIN_MS, 3000),
             flashColor = json.optString("flashColor", flashColor).takeIf { COLOR.matches(it) } ?: flashColor,
             flashColorDown = json.optString("flashColorDown", flashColorDown).takeIf { COLOR.matches(it) } ?: flashColorDown,
             soundUp = choice("soundUp", soundUp, SoundPresets.ALL),
@@ -321,6 +335,8 @@ data class AppSettings(
             speedWindowMin = int("speedWindowMin", speedWindowMin, 1, 30),
             limitAlert = bool("limitAlert", limitAlert),
             sortMode = choice("sortMode", sortMode, StockSort.ALL),
+            alertFrequency = choice("alertFrequency", alertFrequency, listOf("EVERY", "DAILY")),
+            alertCooldownMin = int("alertCooldownMin", alertCooldownMin, 0, 240),
             alertRepeatMin = int("alertRepeatMin", alertRepeatMin, 0, 1440),
             alertTradingOnly = bool("alertTradingOnly", alertTradingOnly),
             alertJumpPage = bool("alertJumpPage", alertJumpPage),
@@ -337,6 +353,8 @@ data class AppSettings(
 
     companion object {
         const val DEFAULT_WEB_PORT = 58080
+        /** 半周期 200ms 约为每秒 2.5 次闪烁，低于常见的每秒 3 次光敏安全上限 */
+        const val FLASH_MIN_MS = 200
         const val LEGACY_WEB_PORT = 8080
         private val COLOR = Regex("^#[0-9a-fA-F]{6}$")
     }

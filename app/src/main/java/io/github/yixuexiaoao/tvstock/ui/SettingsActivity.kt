@@ -11,7 +11,6 @@ import android.view.Gravity
 import android.view.KeyEvent
 import android.view.ViewGroup
 import android.widget.EditText
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -158,6 +157,7 @@ class SettingsActivity : Activity(), AppCore.Listener {
                 toggle("隐私模式（隐藏持仓金额）", { settings.privacy }, "privacy"),
                 toggle("价格跳动闪烁", { settings.priceTickFlash }, "priceTickFlash"),
                 toggle("防烧屏微移", { settings.burnInGuard }, "burnInGuard"),
+                choice("保持亮屏", listOf("TRADING", "ALWAYS", "NEVER"), { settings.keepScreen }, { mapOf("TRADING" to "仅交易时段", "ALWAYS" to "一直", "NEVER" to "跟随系统")[it] ?: it }, "keepScreen"),
             ),
             "刷新" to listOf(
                 number("交易时段刷新", listOf(1, 2, 3, 5, 10, 15, 30, 60, 120, 300), { settings.refreshSec }, "秒", "refreshSec"),
@@ -170,7 +170,7 @@ class SettingsActivity : Activity(), AppCore.Listener {
                 alertToggle(AlertModes.BANNER),
                 alertToggle(AlertModes.SOUND),
                 number("提醒持续", listOf(0, 5, 10, 30, 60, 120, 300, 600), { settings.alertDurationSec }, "秒", "alertDurationSec", "直到手动关闭"),
-                number("闪烁间隔", listOf(150, 250, 500, 750, 1000, 1500), { settings.flashSpeedMs }, "毫秒", "flashSpeedMs"),
+                number("闪烁间隔", listOf(200, 250, 500, 750, 1000, 1500), { settings.flashSpeedMs }, "毫秒", "flashSpeedMs"),
                 choice("上涨闪烁颜色", COLORS.keys.toList(), { settings.flashColor }, { COLORS[it] ?: it }, "flashColor"),
                 choice("下跌闪烁颜色", COLORS.keys.toList(), { settings.flashColorDown }, { COLORS[it] ?: it }, "flashColorDown"),
                 sound("上涨声音", { settings.soundUp }, "soundUp"),
@@ -182,6 +182,8 @@ class SettingsActivity : Activity(), AppCore.Listener {
                 }),
                 number("急涨急跌时间窗", listOf(1, 2, 3, 5, 10, 15, 30), { settings.speedWindowMin }, "分钟", "speedWindowMin"),
                 toggle("涨停跌停提醒", { settings.limitAlert }, "limitAlert"),
+                choice("提醒频率", listOf("EVERY", "DAILY"), { settings.alertFrequency }, { if (it == "DAILY") "每天一次" else "每次穿越" }, "alertFrequency"),
+                number("再次提醒冷却", listOf(0, 1, 3, 5, 10, 30, 60), { settings.alertCooldownMin }, "分钟", "alertCooldownMin", "无"),
                 number("持续满足时重复", listOf(0, 1, 5, 10, 30, 60), { settings.alertRepeatMin }, "分钟", "alertRepeatMin", "只提醒一次"),
                 toggle("仅交易时段提醒", { settings.alertTradingOnly }, "alertTradingOnly"),
                 toggle("提醒时跳到对应页", { settings.alertJumpPage }, "alertJumpPage"),
@@ -192,7 +194,9 @@ class SettingsActivity : Activity(), AppCore.Listener {
             ),
             "自选股（确认键管理）" to stockRows,
             "系统" to listOf(
-                Row("Web 后台", { AppCore.webUrl.ifEmpty { "未启动" } }, onOk = ::showQr),
+                Row("使用帮助", { "遥控器按键说明" }, onOk = { StockDialogs.help(this) }),
+                Row("最近提醒", { "查看" }, onOk = { StockDialogs.recentAlerts(this) }),
+                Row("Web 后台", { AppCore.webUrl.ifEmpty { "未启动" } }, onOk = { StockDialogs.webQr(this) }),
                 toggle("开机自启", { settings.autostart }, "autostart"),
                 toggle("退出后保持 Web 服务", { settings.keepServiceOnExit }, "keepServiceOnExit"),
                 Row("检查更新", { UpdateManager.statusText() }, onOk = ::updateAction),
@@ -371,23 +375,6 @@ class SettingsActivity : Activity(), AppCore.Listener {
             "删除" to { AppCore.deleteStock(code) },
         )
         StockDialogs.menu(this, StockCodes.shortCode(code), items)
-    }
-
-    private fun showQr() {
-        val url = AppCore.webUrl
-        if (url.isEmpty()) return
-        val box = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(dp(16), dp(16), dp(16), dp(16))
-        }
-        box.addView(ImageView(this).apply { setImageBitmap(QrCode.create(url, dp(220))) })
-        box.addView(TextView(this).apply {
-            text = "手机扫码或在浏览器打开\n$url"
-            gravity = Gravity.CENTER
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
-        })
-        dialog().setView(box).setPositiveButton("关闭", null).show()
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()

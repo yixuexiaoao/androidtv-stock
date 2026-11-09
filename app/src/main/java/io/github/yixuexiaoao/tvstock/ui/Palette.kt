@@ -62,6 +62,9 @@ object Format {
 
     fun percent(value: Double): String = signed(value) + "%"
 
+    /** 带涨跌符号的百分比。 */
+    fun trendPercent(value: Double): String = (if (value > 0) "▲" else if (value < 0) "▼" else "") + percent(value)
+
     /** 把“万”为单位的数字转成合适单位。 */
     fun fromWan(wan: Double): String = when {
         abs(wan) >= 10000 -> "%.2f亿".format(wan / 10000)
