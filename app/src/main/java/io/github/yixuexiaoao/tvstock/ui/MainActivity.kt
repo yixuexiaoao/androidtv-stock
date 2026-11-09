@@ -152,6 +152,13 @@ class MainActivity : Activity(), AppCore.Listener {
             headerRow.addView(tab, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT))
         }
         headerRow.addView(gear, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        // 顶部两端按左右键停在原地，否则焦点会跳到下面的窗口
+        marketTabs.values.first().apply {
+            id = View.generateViewId()
+            nextFocusLeftId = id
+        }
+        gear.id = View.generateViewId()
+        gear.nextFocusRightId = gear.id
         grid = FrameLayout(this)
         ticker = TickerView(this)
 

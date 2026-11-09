@@ -91,7 +91,12 @@ object Format {
     /** 成交量：A 股为手，美股为股。 */
     fun volume(q: Quote): String = if (StockCodes.isUs(q.code)) shares(q.volume) else hands(q.volume)
 
-    fun amount(q: Quote): String = (if (StockCodes.isUs(q.code)) "$" else "") + fromWan(q.amountWan)
+    /** 美股指数接口返回的成交额没有实际意义（道指显示十几万亿美元），不显示。 */
+    fun amount(q: Quote): String = when {
+        q.code.startsWith("us.") -> "--"
+        StockCodes.isUs(q.code) -> "$" + fromWan(q.amountWan)
+        else -> fromWan(q.amountWan)
+    }
 
     /** usd 为 true 时带美元符号；A 股保持不带货币符号。 */
     fun money(value: Double, usd: Boolean = false): String {

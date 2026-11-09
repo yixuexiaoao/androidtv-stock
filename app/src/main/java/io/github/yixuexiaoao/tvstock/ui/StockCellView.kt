@@ -413,14 +413,17 @@ class StockCellView(context: Context) : View(context) {
             setFont(levelSize, palette.text)
             if (volume > 0) drawRight(c, "%.0f".format(volume), pr, py)
         }
-        q.asks.indices.reversed().forEach { i -> level("卖${i + 1}", q.asks[i].price, q.asks[i].volume) }
-        py += levelSize * 0.45f
-        rectPaint.color = palette.border
-        rectPaint.style = Paint.Style.FILL
-        c.drawRect(px, py, pr, py + 2f, rectPaint)
-        q.bids.indices.forEach { i -> level("买${i + 1}", q.bids[i].price, q.bids[i].volume) }
-        py += levelSize * 0.45f
-        c.drawRect(px, py, pr, py + 2f, rectPaint)
+        // 美股盘口经常没有数据，这时不留空的买卖档
+        if ((q.asks + q.bids).any { it.price > 0 }) {
+            q.asks.indices.reversed().forEach { i -> level("卖${i + 1}", q.asks[i].price, q.asks[i].volume) }
+            py += levelSize * 0.45f
+            rectPaint.color = palette.border
+            rectPaint.style = Paint.Style.FILL
+            c.drawRect(px, py, pr, py + 2f, rectPaint)
+            q.bids.indices.forEach { i -> level("买${i + 1}", q.bids[i].price, q.bids[i].volume) }
+            py += levelSize * 0.45f
+            c.drawRect(px, py, pr, py + 2f, rectPaint)
+        }
 
         statPairs(q).forEach { (label, value) ->
             if (py + levelH > h - pad) return@forEach
