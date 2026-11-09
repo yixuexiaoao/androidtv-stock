@@ -183,6 +183,10 @@ class TickerView(context: Context) : View(context) {
 
 /** 全屏闪烁层：不可获取焦点，只用来叠加颜色和提示文字。 */
 class FlashOverlayView(context: Context) : View(context) {
+    private companion object {
+        const val DIM_BACKDROP = 0xC8000000.toInt()
+    }
+
     var color = 0
     var flashOn = false
     var title = ""
@@ -194,7 +198,7 @@ class FlashOverlayView(context: Context) : View(context) {
     }
 
     override fun onDraw(canvas: Canvas) {
-        if (flashOn) canvas.drawColor(color)
+        canvas.drawColor(if (flashOn) color else DIM_BACKDROP)
         val cx = width / 2f
         val cy = height / 2f
         paint.color = 0xFFFFFFFF.toInt()

@@ -203,10 +203,24 @@ object StockDialogs {
     /** 遥控器帮助，首次启动时也会显示。 */
     fun help(activity: Activity, onClose: (() -> Unit)? = null) {
         val url = AppCore.webUrl
-        val caption = (if (url.isEmpty()) "" else "手机扫码打开后台：$url\n\n") + HELP_TEXT
+        val box = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            val pad = dp(activity, 16)
+            setPadding(pad, 0, pad, 0)
+            if (url.isNotEmpty()) {
+                addView(ImageView(activity).apply { setImageBitmap(QrCode.create(url, dp(activity, 150))) })
+            }
+            addView(TextView(activity).apply {
+                text = (if (url.isEmpty()) "" else "手机扫码打开后台：\n$url\n\n") + HELP_TEXT
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+                setLineSpacing(0f, 1.15f)
+                setPadding(pad, 0, 0, 0)
+            })
+        }
         val dialog = builder(activity)
             .setTitle("使用帮助")
-            .setView(qrBox(activity, url, caption))
+            .setView(box)
             .setPositiveButton("知道了", null)
             .create()
         dialog.setOnDismissListener { onClose?.invoke() }

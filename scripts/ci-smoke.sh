@@ -34,6 +34,8 @@ post() {
   curl -sS -m 20 -H 'X-Requested-With: androidtv-stock' -H 'Content-Type: application/json' \
     -d "$2" "http://127.0.0.1:$PORT$1"
 }
+# 按数值比较：接口可能返回 1500 或 1500.0
+num_eq() { python3 -c "import sys; sys.exit(0 if abs(float(sys.argv[1])-float(sys.argv[2]))<1e-6 else 1)" "$1" "$2" 2>/dev/null; }
 # json <表达式>，从标准输入读 JSON，d 是解析结果
 json() { python3 -c "import json,sys; d=json.load(sys.stdin); print($1)"; }
 
@@ -89,7 +91,7 @@ STATE=$(get /api/state)
 echo "$STATE" | json "d['status']['version']"
 if [ -n "$OLD_APK" ]; then
   COST=$(echo "$STATE" | json "[s.get('costPrice') for s in d['stocks'] if s['code']=='sh600519'][0]")
-  [ "$COST" = "1400.0" ] || [ "$COST" = "1400" ] && pass "升级后持仓保留" || fail "升级后持仓丢失：$COST"
+  num_eq "$COST" 1400 && pass "升级后持仓保留" || fail "升级后持仓丢失：$COST"
 fi
 
 # 关闭首次引导
@@ -108,13 +110,13 @@ done
 BUY=$(post /api/stocks/trade '{"code":"600519","action":"BUY","price":1600,"shares":100}')
 SHARES=$(get /api/state | json "[s.get('shares') for s in d['stocks'] if s['code']=='sh600519'][0]")
 COST=$(get /api/state | json "[s.get('costPrice') for s in d['stocks'] if s['code']=='sh600519'][0]")
-[ "$SHARES" = "200" ] && [ "$COST" = "1500.0" ] && pass "加仓摊薄成本" || fail "加仓结果不对：$BUY shares=$SHARES cost=$COST"
+num_eq "$SHARES" 200 && num_eq "$COST" 1500 && pass "加仓摊薄成本" || fail "加仓结果不对：$BUY shares=$SHARES cost=$COST"
 post /api/stocks/trade '{"code":"600519","action":"CLEAR","price":1600}' > /dev/null
 REALIZED=$(get /api/state | json "[s.get('realizedProfit') for s in d['stocks'] if s['code']=='sh600519'][0]")
-[ "$REALIZED" = "20000.0" ] && pass "清仓计入已实现" || fail "已实现盈亏不对：$REALIZED"
+num_eq "$REALIZED" 20000 && pass "清仓计入已实现" || fail "已实现盈亏不对：$REALIZED"
 post /api/stocks/trade/undo '{"code":"600519"}' > /dev/null
 SHARES=$(get /api/state | json "[s.get('shares') for s in d['stocks'] if s['code']=='sh600519'][0]")
-[ "$SHARES" = "200" ] && pass "撤销记账" || fail "撤销后股数不对：$SHARES"
+num_eq "$SHARES" 200 && pass "撤销记账" || fail "撤销后股数不对：$SHARES"
 
 HTTP=$(curl -s -o /dev/null -w '%{http_code}' -m 10 -d '{}' "http://127.0.0.1:$PORT/api/logs/clear")
 [ "$HTTP" = "403" ] && pass "无客户端头的写请求被拒绝" || fail "CSRF 防护异常：$HTTP"

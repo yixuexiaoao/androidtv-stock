@@ -386,7 +386,8 @@ class StockCellView(context: Context) : View(context) {
         setFont(base * 1.9f, color, bold = true)
         val line = Format.price(q.displayPrice, q.decimals) + "  " +
             (if (q.hasTrade) Format.signed(q.change, q.decimals) + "  " + Format.trendPercent(q.changePct) else "未成交")
-        drawLeft(c, line, x, y, chartRight - x)
+        shrinkToFit(line, chartRight - x, base * 1.9f)
+        c.drawText(line, x, y, paint)
 
         val rows = holdingLines(s, q)
         val small = base * 1.05f
@@ -398,8 +399,8 @@ class StockCellView(context: Context) : View(context) {
         val px = w - panelW
         val pr = w - pad
         var py = pad + base
-        val levelSize = base * 0.98f
-        val levelH = levelSize * 1.5f
+        val levelSize = base * 0.82f
+        val levelH = levelSize * 1.38f
         fun level(label: String, price: Double, volume: Double) {
             py += levelH
             setFont(levelSize, palette.subText)

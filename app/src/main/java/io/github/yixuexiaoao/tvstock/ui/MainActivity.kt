@@ -495,7 +495,8 @@ class MainActivity : Activity(), AppCore.Listener {
             banner.visibility = View.VISIBLE
             banner.text = banners.takeLast(3).joinToString("\n") { it.message }
             val color = colorOf(banners.last())
-            banner.setBackgroundColor(if (flashPhase) color else (color and 0x00FFFFFF) or (0xA0 shl 24))
+            val dim = Color.rgb(Color.red(color) * 11 / 20, Color.green(color) * 11 / 20, Color.blue(color) * 11 / 20)
+            banner.setBackgroundColor(if (flashPhase) color else dim)
         } else {
             banner.visibility = View.GONE
         }

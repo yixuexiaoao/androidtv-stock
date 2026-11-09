@@ -42,6 +42,10 @@ class ParserTest {
         assertEquals(2, q.decimals)
     }
 
+    @Test fun paddedNamesAreCleaned() {
+        assertEquals("五粮液", QuoteParser.parseTencent(tencent.replace("贵州茅台", "五 粮 液"))[0].name)
+    }
+
     @Test fun etfUsesThreeDecimals() {
         val raw = tencent.replace("~1444.11~1453.00", "~1.234~1.230")
         assertEquals(3, QuoteParser.parseTencent(raw)[0].decimals)

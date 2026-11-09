@@ -16,6 +16,9 @@ object QuoteParser {
     private fun List<String>.num(i: Int): Double = getOrNull(i)?.trim()?.toDoubleOrNull() ?: 0.0
     private fun List<String>.numOrNull(i: Int): Double? = getOrNull(i)?.trim()?.toDoubleOrNull()
 
+    /** 接口用空格把名称补齐到固定宽度（如“五 粮 液”），显示时去掉。 */
+    private fun cleanName(name: String) = name.replace(" ", "").replace("\u3000", "")
+
     private fun decimalsOf(raw: String?): Int {
         val fraction = raw?.substringAfter('.', "").orEmpty()
         return if (fraction.length >= 3 && fraction[2] != '0') 3 else 2
@@ -29,7 +32,7 @@ object QuoteParser {
         val prevClose = f.num(4)
         Quote(
             code = m.groupValues[1],
-            name = f[1],
+            name = cleanName(f[1]),
             price = price,
             prevClose = prevClose,
             open = f.num(5),
@@ -64,7 +67,7 @@ object QuoteParser {
         val change = if (price > 0) price - prevClose else 0.0
         Quote(
             code = m.groupValues[1],
-            name = f[0],
+            name = cleanName(f[0]),
             price = price,
             prevClose = prevClose,
             open = f.num(1),
