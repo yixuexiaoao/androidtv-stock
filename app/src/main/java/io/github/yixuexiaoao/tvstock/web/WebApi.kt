@@ -1,6 +1,7 @@
 package io.github.yixuexiaoao.tvstock.web
 
 import io.github.yixuexiaoao.tvstock.log.LogEntry
+import io.github.yixuexiaoao.tvstock.alert.SoundPresets
 import io.github.yixuexiaoao.tvstock.model.AlertEvent
 import io.github.yixuexiaoao.tvstock.model.AlertModes
 import io.github.yixuexiaoao.tvstock.model.AppConfig
@@ -12,6 +13,10 @@ import io.github.yixuexiaoao.tvstock.model.Quote
 import io.github.yixuexiaoao.tvstock.model.SearchHit
 import io.github.yixuexiaoao.tvstock.model.StockCodes
 import io.github.yixuexiaoao.tvstock.model.StockConfig
+import io.github.yixuexiaoao.tvstock.model.StockSort
+import io.github.yixuexiaoao.tvstock.model.TradeError
+import io.github.yixuexiaoao.tvstock.model.Trades
+import io.github.yixuexiaoao.tvstock.model.optPositive
 import io.github.yixuexiaoao.tvstock.model.Themes
 import org.json.JSONArray
 import org.json.JSONException
@@ -28,7 +33,10 @@ interface WebBackend {
     fun replaceConfig(next: AppConfig)
     fun quotes(): Map<String, Quote>
     fun search(keyword: String): List<SearchHit>
-    fun testAlert(code: String?, modes: List<String>?)
+    fun testAlert(code: String?, modes: List<String>?, direction: String = AlertEvent.UP)
+    fun trade(code: String, action: String, price: Double, shares: Long?)
+    fun undoTrade(code: String)
+    fun muteSound(minutes: Int)
     fun dismissAlerts()
     fun alertHistory(): List<AlertEvent>
     fun logs(level: String?, keyword: String?, limit: Int): List<LogEntry>
@@ -74,6 +82,8 @@ class WebApi(private val backend: WebBackend) {
         if (req.method != "GET" && req.headers["x-requested-with"] != CLIENT_HEADER) return fail(403, "非法来源")
         return try {
             route(req)
+        } catch (e: TradeError) {
+            fail(400, e.message ?: "操作失败")
         } catch (e: JSONException) {
             fail(400, "JSON 格式错误")
         } catch (e: IOException) {
@@ -111,6 +121,15 @@ class WebApi(private val backend: WebBackend) {
                 ok()
             }
         }
+        req.method == "POST" && req.path == "/api/stocks/trade" -> trade(JSONObject(req.body))
+        req.method == "POST" && req.path == "/api/stocks/trade/undo" -> {
+            backend.undoTrade(StockCodes.normalize(JSONObject(req.body).optString("code")) ?: throw TradeError("股票代码无效"))
+            ok()
+        }
+        req.method == "POST" && req.path == "/api/alert/mute" -> {
+            backend.muteSound(JSONObject(req.body).optInt("minutes", 0).coerceIn(0, 1440))
+            ok()
+        }
         req.method == "POST" && req.path == "/api/stocks/reorder" -> {
             val arr = JSONObject(req.body).getJSONArray("codes")
             backend.reorder((0 until arr.length()).mapNotNull { StockCodes.normalize(arr.optString(it)) })
@@ -121,7 +140,8 @@ class WebApi(private val backend: WebBackend) {
             val modes = json.optJSONArray("modes")?.let { a ->
                 (0 until a.length()).map { a.optString(it) }.filter { it in AlertModes.ALL }
             }
-            backend.testAlert(StockCodes.normalize(json.optString("code")), modes)
+            val direction = if (json.optString("direction") == AlertEvent.DOWN) AlertEvent.DOWN else AlertEvent.UP
+            backend.testAlert(StockCodes.normalize(json.optString("code")), modes, direction)
             ok()
         }
         req.method == "POST" && req.path == "/api/alert/dismiss" -> {
@@ -139,9 +159,22 @@ class WebApi(private val backend: WebBackend) {
     }
 
     private fun upsert(body: String): ApiResponse {
-        val stock = StockConfig.fromJson(JSONObject(body)) ?: return fail(400, "股票代码无效，请输入如 600519 或 sh600519")
+        val json = JSONObject(body)
+        val parsed = StockConfig.fromJson(json) ?: return fail(400, "股票代码无效，请输入如 600519 或 sh600519")
+        // 已存在时只覆盖提交的字段，编辑、提醒两个弹窗互不影响，也不丢失记账记录
+        val stock = backend.config().stocks.firstOrNull { it.code == parsed.code }?.merged(json) ?: parsed
         backend.upsertStock(stock)
         return ok(JSONObject().put("ok", true).put("code", stock.code))
+    }
+
+    private fun trade(json: JSONObject): ApiResponse {
+        val code = StockCodes.normalize(json.optString("code")) ?: throw TradeError("股票代码无效")
+        val action = json.optString("action")
+        if (action !in Trades.ACTIONS) throw TradeError("不支持的操作")
+        val price = json.optPositive("price") ?: backend.quotes()[code]?.displayPrice?.takeIf { it > 0 }
+            ?: throw TradeError("请输入价格")
+        backend.trade(code, action, price, json.optPositive("shares")?.toLong())
+        return ok()
     }
 
     private fun search(keyword: String): ApiResponse {
@@ -211,6 +244,7 @@ class WebApi(private val backend: WebBackend) {
                     put("profit", p.profit)
                     put("dayProfit", p.dayProfit)
                     putOpt("profitPct", p.profitPct)
+                    put("realized", p.realized)
                 })
             }
             put("alerts", JSONArray().also { arr ->
@@ -234,6 +268,8 @@ class WebApi(private val backend: WebBackend) {
         put("displayModes", labeled(DisplayModes.ALL, DisplayModes::label))
         put("alertModes", labeled(AlertModes.ALL, AlertModes::label))
         put("themes", labeled(Themes.ALL, Themes::label))
+        put("sounds", labeled(SoundPresets.ALL, SoundPresets::label))
+        put("sortModes", labeled(StockSort.ALL, StockSort::label))
     }
 
     private fun labeled(values: List<String>, label: (String) -> String) = JSONArray().also { arr ->

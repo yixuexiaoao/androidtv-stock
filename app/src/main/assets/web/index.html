@@ -33,11 +33,14 @@ button.btn:hover{border-color:var(--accent)}
 button.primary{background:var(--accent);color:#04202e;border-color:var(--accent);font-weight:600}
 button.danger{color:var(--up)}
 .tablewrap{overflow-x:auto}
-table{width:100%;border-collapse:collapse;min-width:820px}
+table{width:100%;border-collapse:collapse;min-width:1120px}
 th,td{padding:8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
 th{color:var(--sub);font-weight:500;font-size:12px}
 th:first-child,td:first-child{text-align:left}
-td.ops{display:flex;gap:4px;justify-content:flex-end}
+.ops{display:flex;gap:4px;justify-content:flex-end}
+.opscell{position:sticky;right:0;background:var(--card);box-shadow:-6px 0 6px -6px #000}
+button.btn:disabled{opacity:.4;cursor:not-allowed}
+.live{margin-top:12px;padding:10px;background:#0e141b;border-radius:6px;font-size:15px;font-weight:600}
 .up{color:var(--up)}.down{color:var(--down)}.muted{color:var(--sub)}
 .addbar{position:relative;display:flex;gap:8px;margin-bottom:12px;max-width:520px}
 .hits{position:absolute;top:38px;left:0;right:0;background:#0e141b;border:1px solid var(--line);border-radius:6px;z-index:6;max-height:280px;overflow:auto}
@@ -76,6 +79,11 @@ a.btn{text-decoration:none;display:inline-block}
 <header>
   <h1>A股看盘TV 后台</h1>
   <span class="status" id="status">连接中…</span>
+  <div class="row" style="margin-left:auto">
+    <button class="btn" id="qDismiss">关闭电视提醒</button>
+    <button class="btn" id="qMute">静音 30 分钟</button>
+    <button class="btn" id="qPrivacy">隐私模式</button>
+  </div>
 </header>
 <nav id="tabs"></nav>
 <main>
@@ -89,7 +97,7 @@ a.btn{text-decoration:none;display:inline-block}
         <div class="hits" id="hits" hidden></div>
       </div>
       <div class="tablewrap"><table>
-        <thead><tr><th>股票</th><th>现价</th><th>涨跌幅</th><th>目标价</th><th>下破价</th><th>持股</th><th>成本</th><th>盈亏</th><th>提醒</th><th>操作</th></tr></thead>
+        <thead><tr><th>股票</th><th>现价</th><th>涨跌幅</th><th>持股</th><th>成本</th><th>市值</th><th>持仓盈亏</th><th>今日盈亏</th><th>已实现</th><th>提醒</th><th class="opscell">操作</th></tr></thead>
         <tbody id="stockRows"></tbody>
       </table></div>
       <p class="hint">只填代码就会默认监控这只股票；目标价、持仓等都可以不填。</p>
@@ -234,6 +242,7 @@ const FORMS = () => ({
       ['klinePeriod', 'select', 'K线周期', [{value:'day',label:'日K'},{value:'week',label:'周K'},{value:'month',label:'月K'}]],
       ['klineCount', 'number', 'K线数量', {min:20,max:250}],
       ['fontScale', 'number', '字体大小（%，50-250）', {min:50,max:250,step:5}],
+      ['sortMode', 'select', '电视显示排序', meta.sortModes],
       ['showStats', 'check', '显示详细数据（今开/最高/成交量等）'],
       ['showHoldings', 'check', '显示持仓与目标价'],
       ['showTargetLines', 'check', '图表上显示目标/成本标记线'],
@@ -262,11 +271,21 @@ const FORMS = () => ({
     ]],
   ],
   alertForm: [
+    ['盯盘提醒（对所有启用的股票生效）', [
+      ['speedPct', 'number', '急涨急跌阈值（%，0 为关闭）', {min:0,max:30,step:0.1}],
+      ['speedWindowMin', 'number', '急涨急跌时间窗（分钟）', {min:1,max:30}],
+      ['limitAlert', 'check', '涨停、跌停提醒'],
+    ]],
     ['默认提醒方式', [
       ['alertModes', 'modes', '到价时'],
       ['alertDurationSec', 'number', '提醒持续（秒，0 为直到手动关闭）', {min:0,max:3600}],
       ['flashSpeedMs', 'number', '闪烁间隔（毫秒）', {min:150,max:3000,step:50}],
-      ['flashColor', 'color', '闪烁颜色'],
+      ['flashColor', 'color', '上涨闪烁颜色'],
+      ['flashColorDown', 'color', '下跌闪烁颜色'],
+      ['soundUp', 'select', '上涨声音（目标价、涨幅、盈利、涨停、急涨）', meta.sounds],
+      ['soundDown', 'select', '下跌声音（下破价、跌幅、亏损、跌停、急跌）', meta.sounds],
+      ['soundVolume', 'number', '提示音音量（%）', {min:0,max:100,step:5}],
+      ['soundRepeat', 'number', '提示音重复次数', {min:1,max:5}],
       ['alertRepeatMin', 'number', '条件持续满足时重复提醒（分钟，0 为只提醒一次）', {min:0,max:1440}],
       ['alertTradingOnly', 'check', '只在交易时段提醒（避免盘后误报）'],
       ['alertJumpPage', 'check', '提醒时自动跳到该股票所在页'],
@@ -274,7 +293,7 @@ const FORMS = () => ({
   ],
   systemForm: [
     ['服务', [
-      ['webPort', 'number', 'Web 端口（修改后请用新端口访问）', {min:1024,max:65535}],
+      ['webPort', 'number', 'Web 端口（端口被占用时自动 +1，修改后请用新端口访问）', {min:1024,max:65535}],
       ['webPin', 'text', '访问密码（留空为不设密码）'],
       ['autostart', 'check', '开机自启（部分系统可能限制）'],
       ['keepServiceOnExit', 'check', '退出界面后保持 Web 服务运行'],
@@ -331,6 +350,7 @@ function renderForms() {
 }
 
 /* ---------- 自选股 ---------- */
+const signedMoney = n => (n > 0 ? '+' : '') + money(n);
 const fmt = (n, d = 2) => n == null ? '--' : Number(n).toFixed(d);
 const sign = n => n > 0 ? 'up' : n < 0 ? 'down' : 'muted';
 const signed = (n, d = 2) => n == null ? '--' : (n > 0 ? '+' : '') + Number(n).toFixed(d);
@@ -340,49 +360,97 @@ function money(n) {
   return a >= 1e8 ? (n / 1e8).toFixed(2) + '亿' : a >= 1e5 ? (n / 1e4).toFixed(2) + '万' : n.toFixed(2);
 }
 
+const findStock = code => state.stocks.find(s => s.code === code);
+const rowCache = new Map();
+let rowOrder = '';
+
+function conditionCount(s) {
+  return [s.targetHigh, s.targetLow, s.pctUp, s.pctDown, s.profitPct, s.lossPct].filter(v => v != null).length;
+}
+
+// 每列的文字和颜色（第一列股票名和操作列单独处理）
+function stockColumns(s) {
+  const q = s.quote, h = s.holding, d = q ? q.decimals : 2;
+  const conds = conditionCount(s);
+  return [
+    [q ? fmt(q.price, d) : '--', q ? sign(q.change) : ''],
+    [q ? signed(q.changePct) + '%' : '--', q ? sign(q.change) : ''],
+    [s.shares ?? '--', ''],
+    [s.costPrice != null ? fmt(s.costPrice, d) : '--', ''],
+    [h ? money(h.marketValue) : '--', ''],
+    [h && h.profit != null ? `${signedMoney(h.profit)} (${signed(h.profitPct)}%)` : '--', h && h.profit != null ? sign(h.profit) : ''],
+    [h ? signedMoney(h.dayProfit) : '--', h ? sign(h.dayProfit) : ''],
+    [s.realizedProfit ? signedMoney(s.realizedProfit) : '--', s.realizedProfit ? sign(s.realizedProfit) : ''],
+    [conds ? conds + ' 项' : '--', ''],
+  ];
+}
+
+// 行只在股票增删或换序时重建，刷新时原地改文字，否则两秒一次的刷新会吃掉按钮点击
+function buildRow(code) {
+  const nameNode = el('b'), codeNode = el('span', { class: 'muted' }, code);
+  const cells = Array.from({ length: 9 }, () => el('td'));
+  const btn = (label, cls, onclick) => el('button', { class: 'btn ' + cls, type: 'button', onclick }, label);
+  const sell = btn('减仓', '', () => tradeDialog(code, 'SELL'));
+  const clear = btn('清仓', '', () => tradeDialog(code, 'CLEAR'));
+  const tr = el('tr', {},
+    el('td', {}, nameNode, ' ', codeNode),
+    ...cells,
+    el('td', { class: 'opscell' }, el('div', { class: 'ops' },
+      btn('编辑', '', () => editStock(code)),
+      btn('提醒', '', () => alertDialog(code)),
+      btn('加仓', '', () => tradeDialog(code, 'BUY')),
+      sell, clear,
+      btn('↑', '', () => move(code, -1)),
+      btn('↓', '', () => move(code, 1)),
+      btn('删除', 'danger', () => removeStock(code)))));
+  return { tr, nameNode, cells, sell, clear };
+}
+
+function setText(node, text, cls) {
+  const value = String(text);
+  if (node.textContent !== value) node.textContent = value;
+  if (cls !== undefined && node.className !== cls) node.className = cls;
+}
+
 function renderStocks() {
-  const rows = state.stocks.map((s, i) => {
-    const q = s.quote, h = s.holding, d = q ? q.decimals : 2;
-    const conds = [s.targetHigh, s.targetLow, s.pctUp, s.pctDown, s.profitPct, s.lossPct].filter(v => v != null).length;
-    const name = s.alias || (q && q.name) || '加载中';
-    return el('tr', { class: s.enabled ? '' : 'muted' },
-      el('td', {}, el('b', {}, name), ' ', el('span', { class: 'muted' }, s.code)),
-      el('td', { class: q ? sign(q.change) : '' }, q ? fmt(q.price, d) : '--'),
-      el('td', { class: q ? sign(q.change) : '' }, q ? signed(q.changePct) + '%' : '--'),
-      el('td', {}, fmt(s.targetHigh, d)),
-      el('td', {}, fmt(s.targetLow, d)),
-      el('td', {}, s.shares ?? '--'),
-      el('td', {}, h && h.cost != null ? fmt(h.cost, d) : '--'),
-      el('td', { class: h && h.profit != null ? sign(h.profit) : '' }, h && h.profit != null ? `${signed(h.profit)} (${signed(h.profitPct)}%)` : '--'),
-      el('td', {}, conds ? conds + ' 项' : '--'),
-      el('td', { class: 'ops' },
-        el('button', { class: 'btn', type: 'button', title: '上移', onclick: () => move(i, -1) }, '↑'),
-        el('button', { class: 'btn', type: 'button', title: '下移', onclick: () => move(i, 1) }, '↓'),
-        el('button', { class: 'btn', type: 'button', onclick: () => editStock(s) }, '编辑'),
-        el('button', { class: 'btn danger', type: 'button', onclick: () => removeStock(s) }, '删除')));
+  const order = state.stocks.map(s => s.code).join();
+  if (order !== rowOrder) {
+    rowOrder = order;
+    rowCache.clear();
+    state.stocks.forEach(s => rowCache.set(s.code, buildRow(s.code)));
+    $('stockRows').replaceChildren(...state.stocks.map(s => rowCache.get(s.code).tr));
+  }
+  state.stocks.forEach(s => {
+    const r = rowCache.get(s.code);
+    setText(r.nameNode, s.alias || (s.quote && s.quote.name) || '加载中');
+    r.tr.className = s.enabled ? '' : 'muted';
+    stockColumns(s).forEach(([text, cls], i) => setText(r.cells[i], text, cls));
+    r.sell.disabled = r.clear.disabled = s.shares == null;
   });
-  $('stockRows').replaceChildren(...rows);
 
   const p = state.portfolio;
   $('summary').replaceChildren(...(p ? [
     ['持仓市值', money(p.marketValue), ''],
-    ['今日盈亏', (p.dayProfit > 0 ? '+' : '') + money(p.dayProfit), sign(p.dayProfit)],
-    ['累计盈亏', (p.profit > 0 ? '+' : '') + money(p.profit), sign(p.profit)],
-    ['累计收益率', p.profitPct != null ? signed(p.profitPct) + '%' : '--', sign(p.profitPct)],
+    ['今日盈亏', signedMoney(p.dayProfit), sign(p.dayProfit)],
+    ['持仓盈亏', signedMoney(p.profit), sign(p.profit)],
+    ['持仓收益率', p.profitPct != null ? signed(p.profitPct) + '%' : '--', sign(p.profitPct)],
+    ['已实现盈亏', signedMoney(p.realized), sign(p.realized)],
   ].map(([k, v, c]) => el('div', {}, el('span', { class: 'muted' }, k), el('b', { class: c }, v))) : []));
 }
 
-async function move(i, delta) {
+async function move(code, delta) {
   const codes = state.stocks.map(s => s.code);
-  const j = i + delta;
-  if (j < 0 || j >= codes.length) return;
+  const i = codes.indexOf(code), j = i + delta;
+  if (i < 0 || j < 0 || j >= codes.length) return;
   [codes[i], codes[j]] = [codes[j], codes[i]];
   try { await api('/api/stocks/reorder', { codes }); await refresh(); } catch (e) { toast(e.message); }
 }
 
-async function removeStock(s) {
-  if (!confirm(`确定删除 ${s.alias || (s.quote && s.quote.name) || s.code}？持仓和提醒设置也会一起删除。`)) return;
-  try { await api('/api/stocks/delete', { code: s.code }); await refresh(); toast('已删除'); } catch (e) { toast(e.message); }
+async function removeStock(code) {
+  const s = findStock(code);
+  if (!s) return;
+  if (!confirm(`确定删除 ${s.alias || (s.quote && s.quote.name) || s.code}？持仓、记账和提醒设置也会一起删除。`)) return;
+  try { await api('/api/stocks/delete', { code }); await refresh(); toast('已删除'); } catch (e) { toast(e.message); }
 }
 
 async function addStock(code) {
@@ -415,80 +483,183 @@ $('search').addEventListener('keydown', e => { if (e.key === 'Enter') addStock($
 $('addBtn').addEventListener('click', () => addStock($('search').value.trim()));
 document.addEventListener('click', e => { if (!$('search').parentNode.contains(e.target)) $('hits').hidden = true; });
 
-const STOCK_FIELDS = [
-  ['基本', [['alias', 'text', '显示名称（可选）'], ['displayMode', 'mode', '展示方式']]],
-  ['到价提醒（不填不提醒）', [
-    ['targetHigh', 'number', '目标价（价格 ≥ 时提醒）'], ['targetLow', 'number', '下破/止损价（价格 ≤ 时提醒）'],
-    ['pctUp', 'number', '涨幅提醒（%）'], ['pctDown', 'number', '跌幅提醒（%，填正数）'],
-    ['profitPct', 'number', '持仓盈利提醒（%）'], ['lossPct', 'number', '持仓亏损提醒（%，填正数）'],
-  ]],
-  ['持仓（不填不计算盈亏）', [
-    ['buyPrice', 'number', '购买价'], ['shares', 'number', '购买股数'],
-    ['holdPrice', 'number', '持仓价'], ['costPrice', 'number', '成本价（优先用于计算盈亏）'],
-    ['buyDate', 'date', '买入日期'], ['note', 'text', '备注'],
-  ]],
-];
+/* ---------- 弹窗：编辑 / 提醒 / 加仓减仓清仓 ---------- */
+let dialogTick = null;
+$('editDialog').addEventListener('close', () => { dialogTick = null; });
 
-function editStock(s) {
-  const inputs = {};
-  const form = $('editForm');
-  const groups = STOCK_FIELDS.map(([title, fields]) => [el('h3', {}, title), el('div', { class: 'grid' }, ...fields.map(([k, t, l]) => {
-    let input;
-    if (t === 'mode') {
-      input = el('select', {}, el('option', { value: '' }, '跟随全局'), ...meta.displayModes.map(o => el('option', { value: o.value }, o.label)));
-    } else {
-      input = el('input', { type: t });
-      if (t === 'number') { input.step = 'any'; input.min = 0; }
-    }
-    input.value = s[k] ?? '';
-    inputs[k] = input;
-    return el('label', { class: 'field' }, l, input);
-  }))]).flat();
-
-  const inherit = el('input', { type: 'checkbox', checked: s.alertModes == null });
-  const modes = modeChecks(s.alertModes ?? state.settings.alertModes);
-  const syncInherit = () => { modes.style.display = inherit.checked ? 'none' : 'flex'; };
-  inherit.addEventListener('change', syncInherit);
-  syncInherit();
-  const enabled = el('input', { type: 'checkbox', checked: s.enabled });
-
-  form.replaceChildren(
-    el('h2', {}, `${s.alias || (s.quote && s.quote.name) || ''} ${s.code}`),
-    ...groups,
-    el('h3', {}, '提醒方式'),
-    el('label', { class: 'check' }, inherit, '跟随全局提醒方式'),
-    modes,
-    el('h3', {}, '其他'),
-    el('label', { class: 'check' }, enabled, '启用（停用后不显示也不提醒）'),
+function openDialog(title, nodes, buttons) {
+  $('editForm').replaceChildren(
+    el('h2', {}, title),
+    ...nodes,
     el('div', { class: 'actions' },
       el('button', { class: 'btn', type: 'button', onclick: () => $('editDialog').close() }, '取消'),
-      el('button', { class: 'btn', type: 'button', onclick: async () => {
-        await saveStock(s, inputs, inherit, modes, enabled, false);
-        api('/api/alert/test', { code: s.code, modes: inherit.checked ? undefined : pickedModes(modes) }).catch(e => toast(e.message));
-      } }, '保存并测试提醒'),
-      el('button', { class: 'btn primary', type: 'button', onclick: () => saveStock(s, inputs, inherit, modes, enabled, true) }, '保存')));
+      ...buttons));
   $('editDialog').showModal();
+  if (dialogTick) dialogTick();
 }
 
-// 表单内按回车不要关闭弹窗（否则未保存的内容会丢失）
-$('editForm').addEventListener('submit', e => e.preventDefault());
+function textField(label, type, value, extra = {}) {
+  const input = el('input', { type, ...extra });
+  if (type === 'number') { input.step = 'any'; input.min = 0; }
+  input.value = value ?? '';
+  return { input, node: el('label', { class: 'field' }, label, input) };
+}
 
-const pickedModes = box => [...box.querySelectorAll('input:checked')].map(i => i.value);
+// 空输入提交 null，服务器据此清除字段
+const numOrNull = input => { const v = input.value.trim(); return v === '' ? null : Number(v); };
+const stockTitle = s => `${s.alias || (s.quote && s.quote.name) || ''} ${s.code}`;
 
-async function saveStock(s, inputs, inherit, modes, enabled, close) {
-  const body = { code: s.code, enabled: enabled.checked };
-  for (const [k, input] of Object.entries(inputs)) {
-    const v = input.value.trim();
-    if (v !== '') body[k] = input.type === 'number' ? Number(v) : v;
-  }
-  if (!inherit.checked) body.alertModes = pickedModes(modes);
+async function saveStock(body, done) {
   try {
     await api('/api/stocks', body);
-    if (close) $('editDialog').close();
+    if (done) $('editDialog').close();
     await refresh();
     toast('已保存');
   } catch (e) { toast(e.message); }
 }
+
+function editStock(code) {
+  const s = findStock(code);
+  if (!s) return;
+  const alias = textField('显示名称（可选）', 'text', s.alias);
+  const mode = el('select', {}, el('option', { value: '' }, '跟随全局'), ...meta.displayModes.map(o => el('option', { value: o.value }, o.label)));
+  mode.value = s.displayMode || '';
+  const cost = textField('成本价', 'number', s.costPrice);
+  const shares = textField('持股数', 'number', s.shares);
+  const date = textField('买入日期', 'date', s.buyDate);
+  const note = textField('备注', 'text', s.note);
+  const enabled = el('input', { type: 'checkbox', checked: s.enabled });
+  const live = el('div', { class: 'live' });
+  dialogTick = () => {
+    const now = findStock(code);
+    const price = now && now.quote ? now.quote.price : null;
+    const c = numOrNull(cost.input), n = numOrNull(shares.input);
+    if (price == null || !n) return setText(live, '填写持股数和成本价后，这里实时计算盈亏');
+    const parts = [`现价 ${fmt(price, now.quote.decimals)}`, `市值 ${money(price * n)}`];
+    let value = 0;
+    if (c) {
+      value = (price - c) * n;
+      parts.push(`盈亏 ${signedMoney(value)} (${signed((price - c) / c * 100)}%)`);
+    }
+    setText(live, parts.join('　'), 'live ' + sign(value));
+  };
+  cost.input.addEventListener('input', () => dialogTick && dialogTick());
+  shares.input.addEventListener('input', () => dialogTick && dialogTick());
+  openDialog('编辑 ' + stockTitle(s), [
+    el('div', { class: 'grid' }, alias.node, el('label', { class: 'field' }, '展示方式', mode), cost.node, shares.node, date.node, note.node),
+    live,
+    el('p', { class: 'hint' }, '日常买卖建议用“加仓”“减仓”“清仓”，会自动计算摊薄成本和已实现盈亏。'),
+    el('label', { class: 'check', style: 'margin-top:10px' }, enabled, '启用（停用后不显示也不提醒）'),
+  ], [el('button', { class: 'btn primary', type: 'button', onclick: () => saveStock({
+    code, alias: alias.input.value.trim(), displayMode: mode.value, costPrice: numOrNull(cost.input), shares: numOrNull(shares.input),
+    buyDate: date.input.value, note: note.input.value.trim(), enabled: enabled.checked,
+  }, true) }, '保存')]);
+}
+
+const pickedModes = box => [...box.querySelectorAll('input:checked')].map(i => i.value);
+
+function alertDialog(code) {
+  const s = findStock(code);
+  if (!s) return;
+  const defs = [
+    ['targetHigh', '目标价（价格 ≥ 时提醒）'], ['targetLow', '下破/止损价（价格 ≤ 时提醒）'],
+    ['pctUp', '涨幅提醒（%）'], ['pctDown', '跌幅提醒（%，填正数）'],
+    ['profitPct', '持仓盈利提醒（%）'], ['lossPct', '持仓亏损提醒（%，填正数）'],
+  ];
+  const fields = defs.map(([k, label]) => [k, textField(label, 'number', s[k])]);
+  const inherit = el('input', { type: 'checkbox', checked: s.alertModes == null });
+  const modes = modeChecks(s.alertModes ?? state.settings.alertModes);
+  const sync = () => { modes.style.display = inherit.checked ? 'none' : 'flex'; };
+  inherit.addEventListener('change', sync);
+  sync();
+  const body = () => {
+    const out = { code, alertModes: inherit.checked ? null : pickedModes(modes) };
+    fields.forEach(([k, f]) => { out[k] = numOrNull(f.input); });
+    return out;
+  };
+  dialogTick = null;
+  openDialog('提醒设置 ' + stockTitle(s), [
+    el('div', { class: 'grid' }, ...fields.map(([, f]) => f.node)),
+    el('p', { class: 'hint' }, '不填就不提醒。上涨类和下跌类提醒使用不同的声音和颜色，可在“提醒”页设置。'),
+    el('h3', {}, '提醒方式'),
+    el('label', { class: 'check' }, inherit, '跟随全局提醒方式'),
+    modes,
+  ], [
+    el('button', { class: 'btn', type: 'button', onclick: async () => {
+      await saveStock(body(), false);
+      api('/api/alert/test', { code, modes: inherit.checked ? undefined : pickedModes(modes) }).catch(e => toast(e.message));
+    } }, '保存并测试'),
+    el('button', { class: 'btn primary', type: 'button', onclick: () => saveStock(body(), true) }, '保存'),
+  ]);
+}
+
+const ACTION_LABEL = { BUY: '加仓', SELL: '减仓', CLEAR: '清仓' };
+
+function tradeHistory(code) {
+  const s = findStock(code);
+  const list = (s && s.trades) || [];
+  if (!list.length) return el('p', { class: 'hint' }, '暂无记账记录');
+  return el('div', {},
+    el('h3', {}, '最近记录'),
+    ...list.slice(-5).reverse().map(t => el('div', { class: 'alertrow' },
+      el('span', { class: 'muted' }, new Date(t.timeMs).toLocaleString('zh-CN', { hour12: false }) + '  '),
+      `${ACTION_LABEL[t.action] || t.action} ${t.shares} 股 @ ${t.price}`,
+      t.profit != null ? `，盈亏 ${signedMoney(t.profit)}` : '')),
+    el('button', { class: 'btn', type: 'button', style: 'margin-top:8px', onclick: async () => {
+      if (!confirm('撤销最近一笔记账？持股、成本和已实现盈亏会恢复到这笔之前。')) return;
+      try { await api('/api/stocks/trade/undo', { code }); $('editDialog').close(); await refresh(); toast('已撤销'); } catch (e) { toast(e.message); }
+    } }, '撤销上一笔'));
+}
+
+function tradeDialog(code, action) {
+  const s = findStock(code);
+  if (!s) return;
+  const q = s.quote, d = q ? q.decimals : 2;
+  const price = textField('成交价', 'number', q ? fmt(q.price, d) : '');
+  const shares = textField(action === 'BUY' ? '加仓股数' : '减仓股数', 'number', '');
+  const live = el('div', { class: 'live' });
+  const market = el('button', { class: 'btn', type: 'button', onclick: () => {
+    const now = findStock(code);
+    if (now && now.quote) { price.input.value = fmt(now.quote.price, d); dialogTick(); }
+  } }, '使用现价');
+  // 与服务器 Trades.apply 同一算法，这里只用于预览，以服务器结果为准
+  dialogTick = () => {
+    const now = findStock(code);
+    if (!now) return;
+    const p = numOrNull(price.input), held = now.shares || 0, cost = now.costPrice;
+    const qty = action === 'CLEAR' ? held : numOrNull(shares.input);
+    if (!p || !qty) return setText(live, action === 'CLEAR' ? '请输入成交价' : '请输入成交价和股数', 'live');
+    if (action === 'BUY') {
+      const total = held + qty, next = ((cost ?? p) * held + p * qty) / total;
+      return setText(live, `加仓后：持股 ${total} 股，成本 ${next.toFixed(3)}，投入 ${money(p * qty)}`, 'live');
+    }
+    if (qty > held) return setText(live, `减仓股数不能超过持股数 ${held}`, 'live up');
+    const profit = cost != null ? (p - cost) * qty : null;
+    const rest = held - qty;
+    setText(live, `${rest ? `减仓后持股 ${rest} 股，成本 ${fmt(cost, 3)}` : '持仓清空'}${profit != null ? `，本笔盈亏 ${signedMoney(profit)}` : ''}`, 'live ' + sign(profit || 0));
+  };
+  price.input.addEventListener('input', () => dialogTick());
+  shares.input.addEventListener('input', () => dialogTick());
+  const held = s.shares != null ? `当前持股 ${s.shares} 股，成本 ${s.costPrice != null ? fmt(s.costPrice, d) : '未填'}` : '当前没有持仓';
+  openDialog(`${ACTION_LABEL[action]} ${stockTitle(s)}`, [
+    el('p', { class: 'muted', style: 'margin:0 0 10px' }, held),
+    el('div', { class: 'grid' }, price.node, action === 'CLEAR' ? null : shares.node),
+    el('div', { class: 'row', style: 'margin-top:8px' }, market),
+    live,
+    el('p', { class: 'hint' }, '这里只是本地记账，不会真的下单；不计手续费和印花税。'),
+    tradeHistory(code),
+  ], [el('button', { class: 'btn primary', type: 'button', onclick: async () => {
+    try {
+      await api('/api/stocks/trade', { code, action, price: numOrNull(price.input), shares: action === 'CLEAR' ? undefined : numOrNull(shares.input) });
+      $('editDialog').close();
+      await refresh();
+      toast(ACTION_LABEL[action] + '已记录');
+    } catch (e) { toast(e.message); }
+  } }, '确定' + ACTION_LABEL[action])]);
+}
+
+// 表单内按回车不要关闭弹窗（否则未保存的内容会丢失）
+$('editForm').addEventListener('submit', e => e.preventDefault());
 
 /* ---------- 布局 ---------- */
 function previewOf(def) {
@@ -602,9 +773,11 @@ function initEditor() {
 function renderTestRow() {
   $('testRow').replaceChildren(
     ...meta.alertModes.map(m => el('button', { class: 'btn', type: 'button', onclick: () => testAlert([m.value]) }, '测试' + m.label)),
+    el('button', { class: 'btn', type: 'button', onclick: () => testAlert(['SOUND', 'BANNER'], 'UP') }, '试听上涨声音'),
+    el('button', { class: 'btn', type: 'button', onclick: () => testAlert(['SOUND', 'BANNER'], 'DOWN') }, '试听下跌声音'),
     el('button', { class: 'btn', type: 'button', onclick: () => api('/api/alert/dismiss', {}).then(() => toast('已关闭提醒')).catch(e => toast(e.message)) }, '关闭电视上的提醒'));
 }
-function testAlert(modes) { api('/api/alert/test', { modes }).then(() => toast('已发送到电视')).catch(e => toast(e.message)); }
+function testAlert(modes, direction) { api('/api/alert/test', { modes, direction }).then(() => toast('已发送到电视')).catch(e => toast(e.message)); }
 
 function renderAlertLog() {
   const list = state.alerts;
@@ -684,6 +857,16 @@ $('importFile').addEventListener('change', async e => {
   } catch (err) { toast('导入失败：' + err.message); }
 });
 
+/* ---------- 盯盘快捷操作 ---------- */
+function renderQuick() {
+  const minutes = state.status.muteRemainingMin || 0;
+  setText($('qMute'), minutes > 0 ? `取消静音（剩 ${minutes} 分）` : '静音 30 分钟');
+  setText($('qPrivacy'), state.settings.privacy ? '关闭隐私模式' : '隐私模式');
+}
+$('qDismiss').addEventListener('click', () => api('/api/alert/dismiss', {}).then(() => toast('已关闭提醒')).catch(e => toast(e.message)));
+$('qMute').addEventListener('click', () => api('/api/alert/mute', { minutes: (state.status.muteRemainingMin || 0) > 0 ? 0 : 30 }).then(refresh).catch(e => toast(e.message)));
+$('qPrivacy').addEventListener('click', () => saveSettings({ privacy: !state.settings.privacy }).then(renderQuick));
+
 /* ---------- 启动与轮询 ---------- */
 function renderStatus() {
   const st = state.status, node = $('status');
@@ -704,6 +887,8 @@ async function refresh() {
   renderAlertLog();
   renderStatus();
   renderUpdate();
+  renderQuick();
+  if (dialogTick) dialogTick();
 }
 
 function renderAll() {
@@ -724,7 +909,7 @@ function renderAll() {
     setInterval(() => {
       if (!document.hidden && $('tab-logs').classList.contains('on') && $('logAuto').checked) loadLogs();
       if (!document.hidden) refresh().catch(() => { $('status').textContent = '与电视的连接已断开，正在重试…'; $('status').classList.add('err'); });
-    }, 3000);
+    }, 2000);
   } catch (e) {
     $('status').textContent = '无法连接：' + e.message;
     $('status').classList.add('err');

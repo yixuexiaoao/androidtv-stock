@@ -68,6 +68,49 @@ class AlertEngineTest {
         assertEquals(2, AlertEngine().evaluate(s, quote(90.0), settings, trading).size)
     }
 
+    @Test fun directionsSeparateUpAndDown() {
+        assertEquals("UP", AlertEngine().evaluate(stock, quote(111.0), settings, trading).single().direction)
+        assertEquals("DOWN", AlertEngine().evaluate(stock, quote(89.0), settings, trading).single().direction)
+        val s = StockConfig("sh600519", shares = 1, costPrice = 100.0, lossPct = 5.0)
+        assertEquals("DOWN", AlertEngine().evaluate(s, quote(90.0), settings, trading).single().direction)
+    }
+
+    @Test fun speedAlertWithinWindow() {
+        val plain = StockConfig("sh600519")
+        val fast = settings.copy(speedPct = 2.0, speedWindowMin = 5)
+        val e = AlertEngine()
+        assertTrue(e.evaluate(plain, quote(100.0), fast, trading).isEmpty())
+        assertTrue(e.evaluate(plain, quote(101.0), fast, trading + 60_000).isEmpty())
+        val up = e.evaluate(plain, quote(102.5), fast, trading + 120_000).single()
+        assertEquals("SPEED_UP", up.kind)
+        assertEquals("UP", up.direction)
+        // 条件持续满足不重复
+        assertTrue(e.evaluate(plain, quote(103.0), fast, trading + 180_000).isEmpty())
+        // 超出窗口的价格不再参与比较
+        val slow = AlertEngine()
+        slow.evaluate(plain, quote(100.0), fast, trading)
+        assertTrue(slow.evaluate(plain, quote(103.0), fast, trading + 6 * 60_000).isEmpty())
+        // 急跌
+        val drop = AlertEngine()
+        drop.evaluate(plain, quote(100.0), fast, trading)
+        assertEquals("SPEED_DOWN", drop.evaluate(plain, quote(97.0), fast, trading + 60_000).single().kind)
+        // 默认关闭
+        val off = AlertEngine()
+        off.evaluate(plain, quote(100.0), settings, trading)
+        assertTrue(off.evaluate(plain, quote(120.0), settings, trading + 60_000).isEmpty())
+    }
+
+    @Test fun limitAlerts() {
+        val on = settings.copy(limitAlert = true)
+        val plain = StockConfig("sh600519")
+        val q = quote(110.0).copy(limitUp = 110.0, limitDown = 90.0)
+        assertEquals("LIMIT_UP", AlertEngine().evaluate(plain, q, on, trading).single().kind)
+        assertEquals("LIMIT_DOWN", AlertEngine().evaluate(plain, q.copy(price = 90.0), on, trading).single().kind)
+        assertTrue(AlertEngine().evaluate(plain, q, settings, trading).isEmpty())
+        // 指数没有涨跌停价
+        assertTrue(AlertEngine().evaluate(plain, q.copy(limitUp = 0.0, limitDown = 0.0), on, trading).isEmpty())
+    }
+
     @Test fun plainStockNeverAlerts() {
         assertTrue(AlertEngine().evaluate(StockConfig("sh600519"), quote(999.0), settings, trading).isEmpty())
     }

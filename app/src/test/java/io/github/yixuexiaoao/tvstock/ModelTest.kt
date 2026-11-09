@@ -55,11 +55,10 @@ class ModelTest {
     }
 
     @Test fun blankAndInvalidNumbersBecomeNull() {
-        val s = StockConfig.fromJson(JSONObject("""{"code":"600519","targetHigh":"","targetLow":"abc","costPrice":-1,"buyPrice":"12.5","shares":"200"}"""))!!
+        val s = StockConfig.fromJson(JSONObject("""{"code":"600519","targetHigh":"","targetLow":"abc","costPrice":-1,"shares":"200"}"""))!!
         assertNull(s.targetHigh)
         assertNull(s.targetLow)
         assertNull(s.costPrice)
-        assertEquals(12.5, s.buyPrice!!, 1e-9)
         assertEquals(200L, s.shares)
     }
 
@@ -168,16 +167,42 @@ class ModelTest {
         assertEquals(listOf(5), Layouts.pageItems(items, 4, -1))
     }
 
-    @Test fun holdingCostPriority() {
+    @Test fun legacyPricesMigrateToCost() {
+        fun parse(extra: String) = StockConfig.fromJson(JSONObject("""{"code":"600519",$extra}"""))!!.costPrice
+        assertEquals(100.0, parse(""""costPrice":100,"holdPrice":95,"buyPrice":90""")!!, 1e-9)
+        assertEquals(95.0, parse(""""holdPrice":95,"buyPrice":90""")!!, 1e-9)
+        assertEquals(90.0, parse(""""buyPrice":90""")!!, 1e-9)
+    }
+
+    @Test fun legacyPortMigratesOnlyFromOldConfig() {
+        fun port(json: String) = AppConfig.fromJson(JSONObject(json)).settings.webPort
+        assertEquals(58080, AppSettings().webPort)
+        assertEquals(58080, port("""{"settings":{"webPort":8080}}"""))
+        assertEquals(9000, port("""{"settings":{"webPort":9000}}"""))
+        // 新版配置中用户主动设置的 8080 保留，且可经过保存再读取
+        val saved = AppConfig(AppSettings().copy(webPort = 8080), emptyList()).toJson().toString()
+        assertEquals(8080, port(saved))
+    }
+
+    @Test fun mergeKeepsUnsubmittedFieldsAndClearsNulls() {
+        val s = StockConfig("sh600519", targetHigh = 100.0, shares = 100, costPrice = 10.0, realizedProfit = 5.0)
+        val alerts = s.merged(JSONObject("""{"code":"sh600519","targetHigh":null,"pctUp":3}"""))
+        assertNull(alerts.targetHigh)
+        assertEquals(3.0, alerts.pctUp!!, 1e-9)
+        assertEquals(100L, alerts.shares)
+        assertEquals(5.0, alerts.realizedProfit, 1e-9)
+        val inherit = s.copy(alertModes = listOf("CELL")).merged(JSONObject("""{"alertModes":null}"""))
+        assertNull(inherit.alertModes)
+    }
+
+    @Test fun holdingUsesCostPrice() {
         val q = quote(110.0)
-        val h = Holding.of(StockConfig("sh600519", buyPrice = 90.0, holdPrice = 95.0, costPrice = 100.0, shares = 200), q)!!
+        val h = Holding.of(StockConfig("sh600519", costPrice = 100.0, shares = 200), q)!!
         assertEquals(100.0, h.cost!!, 1e-9)
         assertEquals(22000.0, h.marketValue, 1e-9)
         assertEquals(2000.0, h.profit!!, 1e-9)
         assertEquals(10.0, h.profitPct!!, 1e-9)
         assertEquals(2000.0, h.dayProfit, 1e-9)
-        assertEquals(95.0, Holding.of(StockConfig("sh600519", buyPrice = 90.0, holdPrice = 95.0, shares = 1), q)!!.cost!!, 1e-9)
-        assertEquals(90.0, Holding.of(StockConfig("sh600519", buyPrice = 90.0, shares = 1), q)!!.cost!!, 1e-9)
     }
 
     @Test fun holdingWithoutSharesOrCost() {
@@ -202,6 +227,20 @@ class ModelTest {
             clear()
             set(y, mo - 1, d, h, mi)
         }.timeInMillis
+
+    @Test fun marketStatus() {
+        val today = "20261109"
+        assertEquals("未开盘", MarketClock.status(beijing(2026, 11, 9, 9, 0), today))
+        assertEquals("集合竞价", MarketClock.status(beijing(2026, 11, 9, 9, 20), today))
+        assertEquals("交易中", MarketClock.status(beijing(2026, 11, 9, 10, 0), today))
+        assertEquals("午休", MarketClock.status(beijing(2026, 11, 9, 12, 0), today))
+        assertEquals("交易中", MarketClock.status(beijing(2026, 11, 9, 14, 0), today))
+        assertEquals("已收盘", MarketClock.status(beijing(2026, 11, 9, 15, 0), today))
+        assertEquals("休市", MarketClock.status(beijing(2026, 11, 7, 10, 0), today))
+        // 工作日行情日期是旧的：节假日
+        assertEquals("休市", MarketClock.status(beijing(2026, 11, 9, 10, 0), "20261106"))
+        assertEquals("交易中", MarketClock.status(beijing(2026, 11, 9, 10, 0), null))
+    }
 
     @Test fun tradingHours() {
         // 2026-11-09 周一

@@ -129,7 +129,7 @@ class WebService : Service(), AppCore.Listener {
         private const val TAG = "Web"
         private const val NOTIFICATION_ID = 1001
         private const val CHANNEL_ID = "web_service"
-        private const val PORT_TRIES = 10
+        private const val PORT_TRIES = 50
         private const val SOCKET_TIMEOUT_MS = 15_000
         private const val ADDRESS_REFRESH_MS = 15_000L
 

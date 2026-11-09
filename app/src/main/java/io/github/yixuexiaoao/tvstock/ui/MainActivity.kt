@@ -4,8 +4,6 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Color
-import android.media.AudioManager
-import android.media.ToneGenerator
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -21,6 +19,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import io.github.yixuexiaoao.tvstock.AppCore
+import io.github.yixuexiaoao.tvstock.data.MarketClock
 import io.github.yixuexiaoao.tvstock.log.AppLog
 import io.github.yixuexiaoao.tvstock.model.AlertEvent
 import io.github.yixuexiaoao.tvstock.model.AlertModes
@@ -29,6 +28,7 @@ import io.github.yixuexiaoao.tvstock.model.DisplayModes
 import io.github.yixuexiaoao.tvstock.model.GridLayoutDef
 import io.github.yixuexiaoao.tvstock.model.Layouts
 import io.github.yixuexiaoao.tvstock.model.StockConfig
+import io.github.yixuexiaoao.tvstock.model.StockSort
 import io.github.yixuexiaoao.tvstock.update.UpdateManager
 import io.github.yixuexiaoao.tvstock.web.WebService
 import org.json.JSONObject
@@ -64,7 +64,6 @@ class MainActivity : Activity(), AppCore.Listener {
     private var lastPageFlipMs = 0L
     private var lastBackMs = 0L
     private var burnInStep = 0
-    private var tone: ToneGenerator? = null
     private var pendingFocusIndex: Int? = null
     private var appliedTheme = ""
 
@@ -191,14 +190,14 @@ class MainActivity : Activity(), AppCore.Listener {
         AppCore.repo.foreground = false
         AppCore.removeListener(this)
         handler.removeCallbacksAndMessages(null)
-        tone?.release()
-        tone = null
         super.onStop()
     }
 
     // ---- 渲染 ----
 
-    private fun enabledStocks(): List<StockConfig> = config.stocks.filter { it.enabled }
+    /** 按当前排序方式的可显示股票；分页、放大切换和提醒跳页都用这个顺序。 */
+    private fun enabledStocks(): List<StockConfig> =
+        StockSort.apply(config.stocks.filter { it.enabled }, AppCore.repo.quotes, config.settings.sortMode)
 
     private fun applyConfig() {
         val s = config.settings
@@ -240,7 +239,7 @@ class MainActivity : Activity(), AppCore.Listener {
             val cell = StockCellView(this)
             cell.setOnClickListener { toggleZoom(cell) }
             cell.setOnLongClickListener {
-                openSettings()
+                showQuickMenu(cell)
                 true
             }
             cells += cell
@@ -335,6 +334,13 @@ class MainActivity : Activity(), AppCore.Listener {
         header.quotes = repo.quotes
         header.webUrl = AppCore.webUrl
         header.error = repo.lastError
+        val now = System.currentTimeMillis()
+        header.marketText = MarketClock.status(now, repo.quotes["sh000001"]?.tradeDate)
+        // 交易时段行情太久没更新时明确提示，避免把旧价格当实时价格
+        val age = (now - repo.lastSuccessMs) / 1000
+        val limit = maxOf(config.settings.refreshSec * 3L, 15L)
+        header.delayText = if (MarketClock.isTradingTime(now) && repo.lastSuccessMs > 0 && age > limit) "行情延迟 ${age}秒" else ""
+        header.muteText = if (AppCore.isMuted) "静音 ${AppCore.muteRemainingMin()}分" else ""
         header.updateText = when (UpdateManager.state) {
             UpdateManager.State.AVAILABLE, UpdateManager.State.READY -> "新版本 ${UpdateManager.release?.version}"
             UpdateManager.State.DOWNLOADING -> "下载更新 ${UpdateManager.progress}%"
@@ -367,7 +373,11 @@ class MainActivity : Activity(), AppCore.Listener {
     }
 
     override fun onAlert(event: AlertEvent) {
-        if (event.modes.contains(AlertModes.SOUND)) playAlertSound()
+        if (event.modes.contains(AlertModes.SOUND) && (event.isTest || !AppCore.isMuted)) {
+            val s = config.settings
+            val sound = if (event.direction == AlertEvent.DOWN) s.soundDown else s.soundUp
+            SoundPlayer.play(sound, s.soundVolume, s.soundRepeat)
+        }
         val zoomed = zoomCode
         if (config.settings.alertJumpPage && zoomed != null && zoomed != event.code && event.modes.contains(AlertModes.CELL)) {
             // 放大其他股票时窗口闪烁看不到，切到到价的股票
@@ -424,11 +434,14 @@ class MainActivity : Activity(), AppCore.Listener {
 
     private fun renderAlerts() {
         val active = AppCore.activeAlerts
-        val color = parseColor(config.settings.flashColor)
+        fun colorOf(event: AlertEvent) = parseColor(
+            if (event.direction == AlertEvent.DOWN) config.settings.flashColorDown else config.settings.flashColor,
+        )
 
         cells.forEach { cell ->
             val event = cell.stock?.let { active[it.code] }
             val flash = event != null && event.modes.contains(AlertModes.CELL)
+            if (event != null) cell.flashColor = colorOf(event)
             if (cell.flashing != flash || cell.flashOn != (flash && flashPhase)) {
                 cell.flashing = flash
                 cell.flashOn = flash && flashPhase
@@ -439,7 +452,7 @@ class MainActivity : Activity(), AppCore.Listener {
         val full = active.values.lastOrNull { it.modes.contains(AlertModes.FULLSCREEN) }
         if (full != null) {
             flashOverlay.visibility = View.VISIBLE
-            flashOverlay.color = (color and 0x00FFFFFF) or (0xD0 shl 24)
+            flashOverlay.color = (colorOf(full) and 0x00FFFFFF) or (0xD0 shl 24)
             flashOverlay.flashOn = flashPhase
             flashOverlay.title = full.message
             flashOverlay.subtitle = "按 确认/返回 键关闭提醒"
@@ -452,20 +465,60 @@ class MainActivity : Activity(), AppCore.Listener {
         if (banners.isNotEmpty()) {
             banner.visibility = View.VISIBLE
             banner.text = banners.takeLast(3).joinToString("\n") { it.message }
+            val color = colorOf(banners.last())
             banner.setBackgroundColor(if (flashPhase) color else (color and 0x00FFFFFF) or (0xA0 shl 24))
         } else {
             banner.visibility = View.GONE
         }
     }
 
-    private fun playAlertSound() {
-        try {
-            val generator = tone ?: ToneGenerator(AudioManager.STREAM_MUSIC, 100).also { tone = it }
-            generator.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 1500)
-        } catch (e: RuntimeException) {
-            // 部分电视没有可用音频通道
-            AppLog.w("Alert", "提示音播放失败", e)
+    // ---- 盯盘快捷操作 ----
+
+    private fun toggleMute() {
+        val minutes = if (AppCore.isMuted) 0 else MUTE_MINUTES
+        AppCore.muteSound(minutes)
+        toast(if (minutes > 0) "提示音静音 $minutes 分钟" else "已取消静音")
+    }
+
+    private fun togglePrivacy() {
+        val next = !config.settings.privacy
+        AppCore.updateSettings(JSONObject().put("privacy", next))
+        toast(if (next) "隐私模式已开启" else "隐私模式已关闭")
+    }
+
+    private fun cycleSort() {
+        val modes = StockSort.ALL
+        val next = modes[(modes.indexOf(config.settings.sortMode) + 1) % modes.size]
+        AppCore.updateSettings(JSONObject().put("sortMode", next))
+        toast("排序：" + StockSort.label(next))
+    }
+
+    private fun cycleLayout() {
+        val ids = Layouts.ALL.map { it.id } + (if (config.settings.customLayout != null) listOf(Layouts.CUSTOM_ID) else emptyList())
+        val index = ids.indexOf(config.settings.layoutId)
+        val next = ids[(index + 1) % ids.size]
+        AppCore.updateSettings(JSONObject().put("layoutId", next))
+        toast(config.settings.effectiveLayout().name)
+    }
+
+    /** 长按确认：对当前股票的快捷菜单，不用离开看盘界面。 */
+    private fun showQuickMenu(cell: StockCellView) {
+        val code = cell.stock?.code
+        val items = buildList {
+            if (code != null) {
+                add((if (zoomCode != null) "还原宫格" else "放大查看") to { toggleZoom(cell) })
+                addAll(StockDialogs.stockActions(this@MainActivity, code))
+            }
+            add((if (AppCore.isMuted) "取消静音" else "提示音静音 $MUTE_MINUTES 分钟") to ::toggleMute)
+            add((if (config.settings.privacy) "关闭隐私模式" else "开启隐私模式") to ::togglePrivacy)
+            add(("切换排序（当前：" + StockSort.label(config.settings.sortMode) + "）") to ::cycleSort)
+            add("切换布局" to ::cycleLayout)
+            add("后台二维码" to ::showWebQr)
+            add("打开设置" to ::openSettings)
         }
+        val quote = code?.let { AppCore.repo.quotes[it] }
+        val title = cell.stock?.alias?.takeIf { it.isNotBlank() } ?: quote?.name ?: "快捷菜单"
+        StockDialogs.menu(this, title, items)
     }
 
     // ---- 翻页 / 放大 / 布局 ----
@@ -602,6 +655,22 @@ class MainActivity : Activity(), AppCore.Listener {
                 cycleDisplayMode()
                 return true
             }
+            KeyEvent.KEYCODE_PROG_RED -> {
+                toggleMute()
+                return true
+            }
+            KeyEvent.KEYCODE_PROG_GREEN -> {
+                togglePrivacy()
+                return true
+            }
+            KeyEvent.KEYCODE_PROG_YELLOW -> {
+                cycleSort()
+                return true
+            }
+            KeyEvent.KEYCODE_PROG_BLUE -> {
+                cycleLayout()
+                return true
+            }
             KeyEvent.KEYCODE_INFO, KeyEvent.KEYCODE_GUIDE -> {
                 showWebQr()
                 return true
@@ -685,6 +754,7 @@ class MainActivity : Activity(), AppCore.Listener {
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     private companion object {
+        const val MUTE_MINUTES = 30
         val BURN_IN_OFFSETS = listOf(0 to 0, 2 to 0, 2 to 2, 0 to 2, -2 to 2, -2 to 0, -2 to -2, 0 to -2, 2 to -2)
     }
 }

@@ -18,6 +18,23 @@ object MarketClock {
         return minute in (9 * 60 + 15)..(11 * 60 + 31) || minute in (12 * 60 + 59)..(15 * 60 + 1)
     }
 
+    /** 盘面状态文字。lastTradeDate 为最新行情日期，用来识别节假日休市。 */
+    fun status(ms: Long, lastTradeDate: String?): String {
+        val c = calendar(ms)
+        val weekday = c.get(Calendar.DAY_OF_WEEK)
+        if (weekday == Calendar.SATURDAY || weekday == Calendar.SUNDAY) return "休市"
+        val minute = minuteOfDay(ms)
+        if (minute >= 9 * 60 + 30 && !lastTradeDate.isNullOrEmpty() && lastTradeDate != dateString(ms)) return "休市"
+        return when {
+            minute < 9 * 60 + 15 -> "未开盘"
+            minute < 9 * 60 + 30 -> "集合竞价"
+            minute <= 11 * 60 + 30 -> "交易中"
+            minute < 13 * 60 -> "午休"
+            minute < 15 * 60 -> "交易中"
+            else -> "已收盘"
+        }
+    }
+
     /** 北京时间当天第几分钟。 */
     fun minuteOfDay(ms: Long): Int {
         val c = calendar(ms)

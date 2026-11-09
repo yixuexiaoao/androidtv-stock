@@ -18,6 +18,9 @@ class HeaderView(context: Context) : View(context) {
     var pageText = ""
     var error: String? = null
     var updateText = ""
+    var marketText = ""
+    var delayText = ""
+    var muteText = ""
     var palette = Palette.of(config.settings)
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -38,6 +41,21 @@ class HeaderView(context: Context) : View(context) {
             val clock = MarketClock.timeString(System.currentTimeMillis())
             canvas.drawText(clock, right, baseline, paint)
             right -= paint.measureText(clock) + gap
+        }
+        if (marketText.isNotEmpty()) {
+            paint.color = if (marketText == "交易中") palette.accent else palette.subText
+            canvas.drawText(marketText, right, baseline, paint)
+            right -= paint.measureText(marketText) + gap
+        }
+        if (delayText.isNotEmpty()) {
+            paint.color = palette.up
+            canvas.drawText(delayText, right, baseline, paint)
+            right -= paint.measureText(delayText) + gap
+        }
+        if (muteText.isNotEmpty()) {
+            paint.color = palette.subText
+            canvas.drawText(muteText, right, baseline, paint)
+            right -= paint.measureText(muteText) + gap
         }
         if (pageText.isNotEmpty()) {
             paint.color = palette.accent

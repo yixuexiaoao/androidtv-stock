@@ -176,7 +176,21 @@ class StockCellView(context: Context) : View(context) {
 
     private val scale get() = settings.fontScale / 100f
 
-    private fun displayName(s: StockConfig, q: Quote) = s.alias.ifBlank { q.name }
+    private fun displayName(s: StockConfig, q: Quote): String {
+        val badge = when {
+            !q.hasTrade -> ""
+            q.limitUp != null && q.limitUp > 0 && q.price >= q.limitUp -> " [涨停]"
+            q.limitDown != null && q.limitDown > 0 && q.price <= q.limitDown -> " [跌停]"
+            else -> ""
+        }
+        return s.alias.ifBlank { q.name } + badge
+    }
+
+    /** 目标价 + 距离现价的百分比。 */
+    private fun targetText(label: String, target: Double, q: Quote): String {
+        val distance = if (q.displayPrice > 0) (target - q.displayPrice) / q.displayPrice * 100 else 0.0
+        return "$label ${Format.price(target, q.decimals)}(${Format.percent(distance)})"
+    }
 
     private fun holdingLines(s: StockConfig, q: Quote): List<Pair<String, Int>> {
         if (!settings.showHoldings) return emptyList()
@@ -189,15 +203,18 @@ class StockCellView(context: Context) : View(context) {
                 val cost = holding.cost?.let { "  成本 " + Format.price(it, q.decimals) }.orEmpty()
                 out += "持仓 ${holding.shares}股$cost" to palette.subText
                 if (holding.profit != null) {
-                    out += "盈亏 ${Format.signedMoney(holding.profit)}  (${Format.percent(holding.profitPct ?: 0.0)})" to palette.forChange(holding.profit)
+                    out += "盈亏 ${Format.signedMoney(holding.profit)} (${Format.percent(holding.profitPct ?: 0.0)})  今日 ${Format.signedMoney(holding.dayProfit)}" to palette.forChange(holding.profit)
                 } else {
-                    out += "市值 ${Format.money(holding.marketValue)}" to palette.subText
+                    out += "市值 ${Format.money(holding.marketValue)}  今日 ${Format.signedMoney(holding.dayProfit)}" to palette.forChange(holding.dayProfit)
                 }
             }
         }
+        if (holding == null && s.realizedProfit != 0.0 && !settings.privacy) {
+            out += "已实现 ${Format.signedMoney(s.realizedProfit)}" to palette.forChange(s.realizedProfit)
+        }
         val targets = buildList {
-            s.targetHigh?.let { add("目标 " + Format.price(it, q.decimals)) }
-            s.targetLow?.let { add("下破 " + Format.price(it, q.decimals)) }
+            s.targetHigh?.let { add(targetText("目标", it, q)) }
+            s.targetLow?.let { add(targetText("下破", it, q)) }
         }
         if (targets.isNotEmpty()) out += targets.joinToString("  ") to palette.avgLine
         return out
@@ -294,7 +311,7 @@ class StockCellView(context: Context) : View(context) {
             s.targetHigh?.let { add(PriceMark(it, palette.avgLine, "目标")) }
             s.targetLow?.let { add(PriceMark(it, palette.avgLine, "下破")) }
             if (!settings.privacy && s.shares != null) {
-                Holding.effectiveCost(s)?.let { add(PriceMark(it, palette.accent, "成本")) }
+                s.costPrice?.let { add(PriceMark(it, palette.accent, "成本")) }
             }
         }
     }

@@ -6,6 +6,7 @@ import io.github.yixuexiaoao.tvstock.model.AppConfig
 import io.github.yixuexiaoao.tvstock.model.Quote
 import io.github.yixuexiaoao.tvstock.model.SearchHit
 import io.github.yixuexiaoao.tvstock.model.StockConfig
+import io.github.yixuexiaoao.tvstock.model.Trades
 import io.github.yixuexiaoao.tvstock.web.ApiRequest
 import io.github.yixuexiaoao.tvstock.web.ApiResponse
 import io.github.yixuexiaoao.tvstock.web.WebApi
@@ -48,7 +49,20 @@ class WebApiTest {
             if (searchError) throw IOException("down")
             return listOf(SearchHit("sh600519", "茅台", "GP-A"))
         }
-        override fun testAlert(code: String?, modes: List<String>?) { tested = code to modes }
+        var testedDirection = ""
+        var muted = -1
+        override fun testAlert(code: String?, modes: List<String>?, direction: String) {
+            tested = code to modes
+            testedDirection = direction
+        }
+        override fun trade(code: String, action: String, price: Double, shares: Long?) {
+            val s = cfg.stocks.first { it.code == code }
+            upsertStock(Trades.apply(s, action, price, shares, 1))
+        }
+        override fun undoTrade(code: String) {
+            upsertStock(Trades.undo(cfg.stocks.first { it.code == code }))
+        }
+        override fun muteSound(minutes: Int) { muted = minutes }
         override fun dismissAlerts() { dismissed = true }
         override fun alertHistory(): List<AlertEvent> = listOf(AlertEvent(1, "sh600519", "茅台", "TARGET_HIGH", "到价", 110.0, 1, listOf("CELL")))
         override fun status() = JSONObject().put("version", "test")
@@ -163,6 +177,50 @@ class WebApiTest {
         assertEquals(1500.0, fake.cfg.stocks.single().targetHigh!!, 1e-9)
         assertEquals(130, fake.cfg.settings.fontScale)
         assertEquals(400, post("/api/import", """{"foo":1}""").status)
+    }
+
+    @Test fun editAndAlertDialogsDoNotOverwriteEachOther() {
+        post("/api/stocks", """{"code":"600519","costPrice":100,"shares":100}""")
+        post("/api/stocks", """{"code":"600519","targetHigh":120,"alertModes":["SOUND"]}""")
+        var s = fake.cfg.stocks.single()
+        assertEquals(100.0, s.costPrice!!, 1e-9)
+        assertEquals(120.0, s.targetHigh!!, 1e-9)
+        post("/api/stocks", """{"code":"600519","costPrice":null,"alias":"x"}""")
+        s = fake.cfg.stocks.single()
+        assertEquals(null, s.costPrice)
+        assertEquals(120.0, s.targetHigh!!, 1e-9)
+        assertEquals(listOf("SOUND"), s.alertModes)
+    }
+
+    @Test fun tradeFlow() {
+        post("/api/stocks", """{"code":"600519","costPrice":100,"shares":100}""")
+        assertEquals(200, post("/api/stocks/trade", """{"code":"600519","action":"BUY","price":120,"shares":100}""").status)
+        assertEquals(110.0, fake.cfg.stocks.single().costPrice!!, 1e-9)
+        // 不传价格时用现价（Fake 中为 110）
+        assertEquals(200, post("/api/stocks/trade", """{"code":"600519","action":"CLEAR"}""").status)
+        assertEquals(null, fake.cfg.stocks.single().shares)
+        assertEquals(0.0, fake.cfg.stocks.single().realizedProfit, 1e-9)
+        assertEquals(200, post("/api/stocks/trade/undo", """{"code":"600519"}""").status)
+        assertEquals(200L, fake.cfg.stocks.single().shares)
+    }
+
+    @Test fun tradeErrorsAreReadable() {
+        post("/api/stocks", """{"code":"600519"}""")
+        val r = post("/api/stocks/trade", """{"code":"600519","action":"SELL","price":10,"shares":1}""")
+        assertEquals(400, r.status)
+        assertEquals("当前没有持仓", r.obj().getString("error"))
+        assertEquals(400, post("/api/stocks/trade", """{"code":"600519","action":"HOLD","price":10}""").status)
+        assertEquals(400, post("/api/stocks/trade/undo", """{"code":"600519"}""").status)
+        assertEquals(403, post("/api/stocks/trade", """{"code":"600519","action":"BUY","price":10,"shares":1}""", mapOf("host" to "192.168.1.10:8080")).status)
+    }
+
+    @Test fun muteAndDirection() {
+        post("/api/alert/mute", """{"minutes":30}""")
+        assertEquals(30, fake.muted)
+        post("/api/alert/test", """{"direction":"DOWN"}""")
+        assertEquals("DOWN", fake.testedDirection)
+        post("/api/alert/test", """{"direction":"weird"}""")
+        assertEquals("UP", fake.testedDirection)
     }
 
     @Test fun logsCanBeReadFilteredAndCleared() {

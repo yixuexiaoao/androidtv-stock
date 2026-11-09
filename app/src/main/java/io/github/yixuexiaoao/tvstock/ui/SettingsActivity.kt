@@ -17,6 +17,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import io.github.yixuexiaoao.tvstock.AppCore
+import io.github.yixuexiaoao.tvstock.alert.SoundPresets
 import io.github.yixuexiaoao.tvstock.BuildConfig
 import io.github.yixuexiaoao.tvstock.model.AlertModes
 import io.github.yixuexiaoao.tvstock.model.AppSettings
@@ -24,6 +25,7 @@ import io.github.yixuexiaoao.tvstock.model.DisplayModes
 import io.github.yixuexiaoao.tvstock.model.Layouts
 import io.github.yixuexiaoao.tvstock.model.StockCodes
 import io.github.yixuexiaoao.tvstock.model.StockConfig
+import io.github.yixuexiaoao.tvstock.model.StockSort
 import io.github.yixuexiaoao.tvstock.model.Themes
 import io.github.yixuexiaoao.tvstock.update.UpdateManager
 import org.json.JSONArray
@@ -41,6 +43,7 @@ class SettingsActivity : Activity(), AppCore.Listener {
     private lateinit var list: LinearLayout
     private lateinit var scroll: ScrollView
     private var builtPalette: Palette? = null
+    private var builtStocks: List<StockConfig>? = null
     private val palette: Palette get() = Palette.of(settings)
     private val rows = ArrayList<Pair<TextView, Row>>()
 
@@ -68,6 +71,11 @@ class SettingsActivity : Activity(), AppCore.Listener {
     override fun onStop() {
         AppCore.removeListener(this)
         super.onStop()
+    }
+
+    override fun onConfig() {
+        // 股票列表变化（含 Web 后台的修改）才需要重建，其他只刷新文字
+        if (AppCore.config.stocks != builtStocks) rebuild(currentIndex()) else refreshTexts()
     }
 
     override fun onUpdate() {
@@ -99,6 +107,13 @@ class SettingsActivity : Activity(), AppCore.Listener {
         put(key, if (d > 0) TIMES.firstOrNull { it > now } ?: TIMES.first() else TIMES.lastOrNull { it < now } ?: TIMES.last())
     })
 
+    /** 切换时试听一次。 */
+    private fun sound(label: String, current: () -> String, key: String): Row = Row(label, { SoundPresets.label(current()) }, { d ->
+        val next = stepped(SoundPresets.ALL, current(), d)
+        put(key, next)
+        SoundPlayer.play(next, settings.soundVolume)
+    })
+
     private fun toggle(label: String, current: () -> Boolean, key: String): Row =
         Row(label, { if (current()) "开" else "关" }, { _ -> put(key, !current()) })
 
@@ -126,6 +141,7 @@ class SettingsActivity : Activity(), AppCore.Listener {
                 time("白天开始（自动主题）", { settings.dayStart }, "dayStart"),
                 time("夜晚开始（自动主题）", { settings.nightStart }, "nightStart"),
                 choice("涨跌颜色", listOf("RED_UP", "GREEN_UP"), { settings.colorScheme }, { if (it == "RED_UP") "红涨绿跌" else "绿涨红跌" }, "colorScheme"),
+                choice("排序", StockSort.ALL, { settings.sortMode }, StockSort::label, "sortMode"),
                 number("窗口间距", listOf(0, 2, 4, 6, 8, 12, 16), { settings.gridGap }, "px", "gridGap"),
                 number("屏幕边距（画面被裁切时调大）", listOf(0, 8, 16, 24, 32, 48, 64), { settings.screenMargin }, "dp", "screenMargin"),
                 number("自动翻页", listOf(0, 5, 10, 15, 30, 60, 120, 300), { settings.pageIntervalSec }, "秒", "pageIntervalSec", "关闭"),
@@ -153,7 +169,17 @@ class SettingsActivity : Activity(), AppCore.Listener {
                 alertToggle(AlertModes.SOUND),
                 number("提醒持续", listOf(0, 5, 10, 30, 60, 120, 300, 600), { settings.alertDurationSec }, "秒", "alertDurationSec", "直到手动关闭"),
                 number("闪烁间隔", listOf(150, 250, 500, 750, 1000, 1500), { settings.flashSpeedMs }, "毫秒", "flashSpeedMs"),
-                choice("闪烁颜色", COLORS.keys.toList(), { settings.flashColor }, { COLORS[it] ?: it }, "flashColor"),
+                choice("上涨闪烁颜色", COLORS.keys.toList(), { settings.flashColor }, { COLORS[it] ?: it }, "flashColor"),
+                choice("下跌闪烁颜色", COLORS.keys.toList(), { settings.flashColorDown }, { COLORS[it] ?: it }, "flashColorDown"),
+                sound("上涨声音", { settings.soundUp }, "soundUp"),
+                sound("下跌声音", { settings.soundDown }, "soundDown"),
+                number("提示音音量", listOf(10, 20, 30, 40, 50, 60, 70, 80, 90, 100), { settings.soundVolume }, "%", "soundVolume"),
+                number("提示音重复", listOf(1, 2, 3, 4, 5), { settings.soundRepeat }, "次", "soundRepeat"),
+                Row("急涨急跌阈值", { if (settings.speedPct > 0) "${settings.speedPct}%" else "关闭" }, { d ->
+                    put("speedPct", stepped(listOf(0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 5.0), settings.speedPct, d))
+                }),
+                number("急涨急跌时间窗", listOf(1, 2, 3, 5, 10, 15, 30), { settings.speedWindowMin }, "分钟", "speedWindowMin"),
+                toggle("涨停跌停提醒", { settings.limitAlert }, "limitAlert"),
                 number("持续满足时重复", listOf(0, 1, 5, 10, 30, 60), { settings.alertRepeatMin }, "分钟", "alertRepeatMin", "只提醒一次"),
                 toggle("仅交易时段提醒", { settings.alertTradingOnly }, "alertTradingOnly"),
                 toggle("提醒时跳到对应页", { settings.alertJumpPage }, "alertJumpPage"),
@@ -184,6 +210,7 @@ class SettingsActivity : Activity(), AppCore.Listener {
                 stock.targetHigh?.let { add("目标 $it") }
                 stock.targetLow?.let { add("下破 $it") }
                 stock.shares?.let { add("${it}股") }
+                stock.costPrice?.let { add("成本 $it") }
             }.joinToString("  ").ifEmpty { "仅监控" }
         }, onOk = { stockMenu(stock) })
     }
@@ -207,6 +234,7 @@ class SettingsActivity : Activity(), AppCore.Listener {
 
     private fun rebuild(focusIndex: Int) {
         builtPalette = palette
+        builtStocks = AppCore.config.stocks
         scroll.setBackgroundColor(palette.background)
         list.removeAllViews()
         rows.clear()
@@ -324,60 +352,23 @@ class SettingsActivity : Activity(), AppCore.Listener {
     }
 
     private fun stockMenu(stock: StockConfig) {
-        val toggleLabel = if (stock.enabled) "停用" else "启用"
-        val items = arrayOf("设置目标价与持仓", "上移", "下移", toggleLabel, "删除")
-        dialog().setItems(items) { _, which ->
-            // 列表可能已被 Web 后台修改，按代码重新定位
+        val code = stock.code
+        fun move(delta: Int) {
             val codes = AppCore.config.stocks.map { it.code }.toMutableList()
-            val at = codes.indexOf(stock.code)
-            when (which) {
-                0 -> stockForm(stock)
-                1 -> if (at > 0) {
-                    codes.add(at - 1, codes.removeAt(at))
-                    AppCore.reorder(codes)
-                }
-                2 -> if (at in 0 until codes.size - 1) {
-                    codes.add(at + 1, codes.removeAt(at))
-                    AppCore.reorder(codes)
-                }
-                3 -> AppCore.upsertStock(stock.copy(enabled = !stock.enabled))
-                4 -> AppCore.deleteStock(stock.code)
+            val at = codes.indexOf(code)
+            val target = at + delta
+            if (at >= 0 && target in codes.indices) {
+                codes.add(target, codes.removeAt(at))
+                AppCore.reorder(codes)
             }
-            if (which != 0) rebuild(currentIndex())
-        }.show()
-    }
-
-    private fun stockForm(stock: StockConfig) {
-        val box = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(8), dp(16), dp(8))
         }
-        fun field(hintText: String, value: Number?): EditText = EditText(this).apply {
-            hint = hintText
-            setText(value?.toString().orEmpty())
-            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
-            box.addView(this)
-        }
-        val high = field("目标价（≥ 提醒）", stock.targetHigh)
-        val low = field("下破价（≤ 提醒）", stock.targetLow)
-        val cost = field("成本价", stock.costPrice)
-        val shares = field("持股数", stock.shares)
-        dialog()
-            .setTitle(StockCodes.shortCode(stock.code))
-            .setView(box)
-            .setPositiveButton("保存") { _, _ ->
-                AppCore.upsertStock(
-                    stock.copy(
-                        targetHigh = high.text.toString().toDoubleOrNull()?.takeIf { it > 0 },
-                        targetLow = low.text.toString().toDoubleOrNull()?.takeIf { it > 0 },
-                        costPrice = cost.text.toString().toDoubleOrNull()?.takeIf { it > 0 },
-                        shares = shares.text.toString().toDoubleOrNull()?.toLong()?.takeIf { it > 0 },
-                    ),
-                )
-                rebuild(currentIndex())
-            }
-            .setNegativeButton("取消", null)
-            .show()
+        val items = StockDialogs.stockActions(this, code) + listOf(
+            "上移" to { move(-1) },
+            "下移" to { move(1) },
+            (if (stock.enabled) "停用" else "启用") to { AppCore.updateStock(code) { it.copy(enabled = !it.enabled) } },
+            "删除" to { AppCore.deleteStock(code) },
+        )
+        StockDialogs.menu(this, StockCodes.shortCode(code), items)
     }
 
     private fun showQr() {

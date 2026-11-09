@@ -14,6 +14,8 @@ import io.github.yixuexiaoao.tvstock.model.AppConfig
 import io.github.yixuexiaoao.tvstock.model.Quote
 import io.github.yixuexiaoao.tvstock.model.SearchHit
 import io.github.yixuexiaoao.tvstock.model.StockConfig
+import io.github.yixuexiaoao.tvstock.model.TradeError
+import io.github.yixuexiaoao.tvstock.model.Trades
 import io.github.yixuexiaoao.tvstock.update.UpdateManager
 import io.github.yixuexiaoao.tvstock.web.WebBackend
 import org.json.JSONObject
@@ -42,6 +44,8 @@ object AppCore : WebBackend {
     private lateinit var configFile: File
 
     @Volatile var webUrl: String = ""
+    /** 声音静音截止时间，只影响声音，不影响闪烁和横幅；进程重启后失效 */
+    @Volatile private var muteUntilMs = 0L
     @Volatile private var cfg = AppConfig()
     lateinit var repo: QuoteRepository
         private set
@@ -172,7 +176,43 @@ object AppCore : WebBackend {
 
     override fun search(keyword: String): List<SearchHit> = QuoteApi.search(keyword)
 
-    override fun testAlert(code: String?, modes: List<String>?) {
+    private fun requireStock(code: String): StockConfig =
+        cfg.stocks.firstOrNull { it.code == code } ?: throw TradeError("自选中没有这只股票")
+
+    private fun replaceStock(next: StockConfig) {
+        commit(cfg.copy(stocks = cfg.stocks.map { if (it.code == next.code) next else it }))
+    }
+
+    /** 基于最新配置修改一只股票，避免覆盖 Web 后台同时做的改动。 */
+    @Synchronized
+    fun updateStock(code: String, change: (StockConfig) -> StockConfig) {
+        replaceStock(change(requireStock(code)))
+    }
+
+    /** 本地记账，不产生真实交易。日志只记操作和代码，不记数量和价格。 */
+    @Synchronized
+    override fun trade(code: String, action: String, price: Double, shares: Long?) {
+        replaceStock(Trades.apply(requireStock(code), action, price, shares, System.currentTimeMillis()))
+        AppLog.i("Trade", "${Trades.label(action)}记账 $code")
+    }
+
+    @Synchronized
+    override fun undoTrade(code: String) {
+        replaceStock(Trades.undo(requireStock(code)))
+        AppLog.i("Trade", "撤销记账 $code")
+    }
+
+    val isMuted: Boolean get() = System.currentTimeMillis() < muteUntilMs
+
+    fun muteRemainingMin(): Long = maxOf(0, (muteUntilMs - System.currentTimeMillis() + 59_999) / 60_000)
+
+    override fun muteSound(minutes: Int) {
+        muteUntilMs = if (minutes > 0) System.currentTimeMillis() + minutes * 60_000L else 0
+        AppLog.i("Alert", if (minutes > 0) "提示音静音 $minutes 分钟" else "取消静音")
+        main.post { listeners.forEach { it.onQuotes() } }
+    }
+
+    override fun testAlert(code: String?, modes: List<String>?, direction: String) {
         main.post {
             val settings = cfg.settings
             val target = code ?: cfg.stocks.firstOrNull { it.enabled }?.code ?: return@post
@@ -180,7 +220,7 @@ object AppCore : WebBackend {
             val stock = cfg.stocks.firstOrNull { it.code == target }
             val name = stock?.alias?.takeIf { it.isNotBlank() } ?: quote?.name ?: target
             val useModes = modes ?: stock?.alertModes ?: settings.alertModes
-            raise(engine.testEvent(target, name, useModes.ifEmpty { AlertModes.ALL }, System.currentTimeMillis(), quote?.displayPrice ?: 0.0))
+            raise(engine.testEvent(target, name, useModes.ifEmpty { AlertModes.ALL }, System.currentTimeMillis(), quote?.displayPrice ?: 0.0, direction))
         }
     }
 
@@ -205,6 +245,7 @@ object AppCore : WebBackend {
         put("lastSuccessMs", repo.lastSuccessMs)
         put("lastError", repo.lastError ?: JSONObject.NULL)
         put("foreground", repo.foreground)
+        put("muteRemainingMin", muteRemainingMin())
         put("update", UpdateManager.statusJson())
     }
 }

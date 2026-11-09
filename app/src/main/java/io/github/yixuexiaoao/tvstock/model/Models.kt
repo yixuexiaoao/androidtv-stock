@@ -1,5 +1,6 @@
 package io.github.yixuexiaoao.tvstock.model
 
+import io.github.yixuexiaoao.tvstock.alert.SoundPresets
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -64,10 +65,11 @@ data class StockConfig(
     val profitPct: Double? = null,
     /** 持仓亏损提醒（%，填正数） */
     val lossPct: Double? = null,
-    val buyPrice: Double? = null,
     val shares: Long? = null,
-    val holdPrice: Double? = null,
     val costPrice: Double? = null,
+    /** 减仓、清仓累计实现的盈亏 */
+    val realizedProfit: Double = 0.0,
+    val trades: List<TradeRecord> = emptyList(),
     val buyDate: String = "",
     val note: String = "",
     /** 空表示跟随全局展示方式 */
@@ -85,15 +87,22 @@ data class StockConfig(
         putOpt("pctDown", pctDown)
         putOpt("profitPct", profitPct)
         putOpt("lossPct", lossPct)
-        putOpt("buyPrice", buyPrice)
         putOpt("shares", shares)
-        putOpt("holdPrice", holdPrice)
         putOpt("costPrice", costPrice)
+        put("realizedProfit", realizedProfit)
+        if (trades.isNotEmpty()) put("trades", TradeRecord.listToJson(trades))
         put("buyDate", buyDate)
         put("note", note)
         put("displayMode", displayMode)
         alertModes?.let { put("alertModes", it.toJsonArray()) }
         put("enabled", enabled)
+    }
+
+    /** 把 json 中出现的字段覆盖到当前配置，值为 null 或空表示清除；没出现的字段保持不变。 */
+    fun merged(json: JSONObject): StockConfig {
+        val base = toJson()
+        json.keys().forEach { key -> if (key != "code") base.put(key, json.get(key)) }
+        return fromJson(base) ?: this
     }
 
     companion object {
@@ -109,10 +118,11 @@ data class StockConfig(
                 pctDown = json.optPositive("pctDown"),
                 profitPct = json.optPositive("profitPct"),
                 lossPct = json.optPositive("lossPct"),
-                buyPrice = json.optPositive("buyPrice"),
                 shares = json.optPositive("shares")?.toLong(),
-                holdPrice = json.optPositive("holdPrice"),
-                costPrice = json.optPositive("costPrice"),
+                // 旧版本有购买价、持仓价，合并进成本价
+                costPrice = json.optPositive("costPrice") ?: json.optPositive("holdPrice") ?: json.optPositive("buyPrice"),
+                realizedProfit = json.optNum("realizedProfit") ?: 0.0,
+                trades = TradeRecord.listFromJson(json.optJSONArray("trades")),
                 buyDate = json.optString("buyDate", "").trim().take(16),
                 note = json.optString("note", "").trim().take(200),
                 displayMode = json.optString("displayMode", "").takeIf { it in DisplayModes.ALL }.orEmpty(),
@@ -186,13 +196,23 @@ data class AppSettings(
     val alertDurationSec: Int = 30,
     val flashSpeedMs: Int = 500,
     val flashColor: String = "#FF1744",
+    val flashColorDown: String = "#00C853",
+    val soundUp: String = SoundPresets.RISE,
+    val soundDown: String = SoundPresets.FALL,
+    val soundVolume: Int = 80,
+    val soundRepeat: Int = 1,
+    /** 急涨急跌提醒阈值（%），0 为关闭 */
+    val speedPct: Double = 0.0,
+    val speedWindowMin: Int = 5,
+    val limitAlert: Boolean = false,
+    val sortMode: String = StockSort.MANUAL,
     val alertRepeatMin: Int = 0,
     val alertTradingOnly: Boolean = true,
     val alertJumpPage: Boolean = true,
     val source: String = "AUTO",
     val autostart: Boolean = false,
     val keepServiceOnExit: Boolean = true,
-    val webPort: Int = 8080,
+    val webPort: Int = DEFAULT_WEB_PORT,
     val webPin: String = "",
     val updateChannel: String = "AUTO",
     val updateAutoCheck: Boolean = true,
@@ -231,6 +251,15 @@ data class AppSettings(
         put("alertDurationSec", alertDurationSec)
         put("flashSpeedMs", flashSpeedMs)
         put("flashColor", flashColor)
+        put("flashColorDown", flashColorDown)
+        put("soundUp", soundUp)
+        put("soundDown", soundDown)
+        put("soundVolume", soundVolume)
+        put("soundRepeat", soundRepeat)
+        put("speedPct", speedPct)
+        put("speedWindowMin", speedWindowMin)
+        put("limitAlert", limitAlert)
+        put("sortMode", sortMode)
         put("alertRepeatMin", alertRepeatMin)
         put("alertTradingOnly", alertTradingOnly)
         put("alertJumpPage", alertJumpPage)
@@ -283,6 +312,15 @@ data class AppSettings(
             alertDurationSec = int("alertDurationSec", alertDurationSec, 0, 3600),
             flashSpeedMs = int("flashSpeedMs", flashSpeedMs, 150, 3000),
             flashColor = json.optString("flashColor", flashColor).takeIf { COLOR.matches(it) } ?: flashColor,
+            flashColorDown = json.optString("flashColorDown", flashColorDown).takeIf { COLOR.matches(it) } ?: flashColorDown,
+            soundUp = choice("soundUp", soundUp, SoundPresets.ALL),
+            soundDown = choice("soundDown", soundDown, SoundPresets.ALL),
+            soundVolume = int("soundVolume", soundVolume, 0, 100),
+            soundRepeat = int("soundRepeat", soundRepeat, 1, 5),
+            speedPct = (json.optNum("speedPct") ?: speedPct).coerceIn(0.0, 30.0),
+            speedWindowMin = int("speedWindowMin", speedWindowMin, 1, 30),
+            limitAlert = bool("limitAlert", limitAlert),
+            sortMode = choice("sortMode", sortMode, StockSort.ALL),
             alertRepeatMin = int("alertRepeatMin", alertRepeatMin, 0, 1440),
             alertTradingOnly = bool("alertTradingOnly", alertTradingOnly),
             alertJumpPage = bool("alertJumpPage", alertJumpPage),
@@ -297,8 +335,10 @@ data class AppSettings(
         )
     }
 
-    private companion object {
-        val COLOR = Regex("^#[0-9a-fA-F]{6}$")
+    companion object {
+        const val DEFAULT_WEB_PORT = 58080
+        const val LEGACY_WEB_PORT = 8080
+        private val COLOR = Regex("^#[0-9a-fA-F]{6}$")
     }
 }
 
@@ -345,11 +385,14 @@ data class AppConfig(
     val stocks: List<StockConfig> = DEFAULT_STOCKS,
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
+        put("version", CONFIG_VERSION)
         put("settings", settings.toJson())
         put("stocks", JSONArray().also { arr -> stocks.forEach { arr.put(it.toJson()) } })
     }
 
     companion object {
+        const val CONFIG_VERSION = 2
+
         /** 首次启动的示例自选，可在后台删除。 */
         val DEFAULT_STOCKS = listOf(
             StockConfig("sh000001"),
@@ -359,7 +402,11 @@ data class AppConfig(
         )
 
         fun fromJson(json: JSONObject): AppConfig {
-            val settings = json.optJSONObject("settings")?.let { AppSettings().merged(it) } ?: AppSettings()
+            var settings = json.optJSONObject("settings")?.let { AppSettings().merged(it) } ?: AppSettings()
+            // 旧版默认端口迁移到新默认端口；用户在新版里主动改回 8080 不受影响
+            if (json.optInt("version", 1) < 2 && settings.webPort == AppSettings.LEGACY_WEB_PORT) {
+                settings = settings.copy(webPort = AppSettings.DEFAULT_WEB_PORT)
+            }
             val stocks = json.optJSONArray("stocks")?.let { arr ->
                 (0 until arr.length())
                     .mapNotNull { i -> arr.optJSONObject(i)?.let { StockConfig.fromJson(it) } }
@@ -434,4 +481,11 @@ data class AlertEvent(
     val timeMs: Long,
     val modes: List<String>,
     val isTest: Boolean = false,
-)
+    /** UP 或 DOWN，决定声音和闪烁颜色 */
+    val direction: String = AlertEvent.UP,
+) {
+    companion object {
+        const val UP = "UP"
+        const val DOWN = "DOWN"
+    }
+}
