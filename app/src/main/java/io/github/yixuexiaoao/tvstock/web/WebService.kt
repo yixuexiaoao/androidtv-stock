@@ -56,7 +56,7 @@ class WebService : Service(), AppCore.Listener {
         val wanted = AppCore.config.settings.webPort
         pendingPort = wanted
         // 端口被占用时依次尝试后面的端口
-        for (port in wanted until wanted + PORT_TRIES) {
+        for (port in wanted until minOf(wanted + PORT_TRIES, 65536)) {
             try {
                 val s = WebServer(this, AppCore, port)
                 s.start(SOCKET_TIMEOUT_MS, true)

@@ -66,6 +66,7 @@ class MainActivity : Activity(), AppCore.Listener {
     private var burnInStep = 0
     private var pendingFocusIndex: Int? = null
     private var appliedTheme = ""
+    private var lastSoundMs = 0L
 
     private val clockTick = object : Runnable {
         override fun run() {
@@ -304,7 +305,6 @@ class MainActivity : Activity(), AppCore.Listener {
             cell.palette = palette
             cell.detail = zoom != null
             cell.modeOverride = if (zoom != null) zoomMode else ""
-            cell.flashColor = parseColor(s.flashColor)
             if (changed) cell.updateQuote(null)
             if (stock != null) {
                 cell.updateQuote(AppCore.repo.quotes[stock.code])
@@ -373,7 +373,10 @@ class MainActivity : Activity(), AppCore.Listener {
     }
 
     override fun onAlert(event: AlertEvent) {
-        if (event.modes.contains(AlertModes.SOUND) && (event.isTest || !AppCore.isMuted)) {
+        val now = System.currentTimeMillis()
+        val soundAllowed = event.isTest || (!AppCore.isMuted && now - lastSoundMs >= SOUND_GAP_MS)
+        if (event.modes.contains(AlertModes.SOUND) && soundAllowed) {
+            lastSoundMs = now
             val s = config.settings
             val sound = if (event.direction == AlertEvent.DOWN) s.soundDown else s.soundUp
             SoundPlayer.play(sound, s.soundVolume, s.soundRepeat)
@@ -755,6 +758,8 @@ class MainActivity : Activity(), AppCore.Listener {
 
     private companion object {
         const val MUTE_MINUTES = 30
+        /** 同一轮多只股票同时触发时只播一次，避免声音混在一起 */
+        const val SOUND_GAP_MS = 1500L
         val BURN_IN_OFFSETS = listOf(0 to 0, 2 to 0, 2 to 2, 0 to 2, -2 to 2, -2 to 0, -2 to -2, 0 to -2, 2 to -2)
     }
 }

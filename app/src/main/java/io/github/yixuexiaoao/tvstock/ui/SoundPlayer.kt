@@ -10,9 +10,10 @@ import io.github.yixuexiaoao.tvstock.log.AppLog
 
 object SoundPlayer {
     private val handler = Handler(Looper.getMainLooper())
+    private val cache = HashMap<String, ShortArray>()
 
     fun play(id: String, volumePercent: Int, repeat: Int = 1) {
-        val pcm = SoundPresets.pcm(id, repeat)
+        val pcm = cache.getOrPut("$id/$repeat") { SoundPresets.pcm(id, repeat) }
         if (pcm.isEmpty()) return
         try {
             val track = AudioTrack(

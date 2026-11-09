@@ -30,7 +30,7 @@ object StockDialogs {
         setPadding(pad, dp(activity, 8), pad, dp(activity, 8))
     }
 
-    private fun LinearLayout.number(hintText: String, value: Number?, decimal: Boolean = true): EditText =
+    private fun LinearLayout.number(hintText: String, value: Any?, decimal: Boolean = true): EditText =
         EditText(context).apply {
             hint = hintText
             setText(value?.toString().orEmpty())

@@ -507,6 +507,7 @@ function textField(label, type, value, extra = {}) {
 
 // 空输入提交 null，服务器据此清除字段
 const numOrNull = input => { const v = input.value.trim(); return v === '' ? null : Number(v); };
+const intOrNull = input => { const v = numOrNull(input); return v == null ? null : Math.trunc(v); };
 const stockTitle = s => `${s.alias || (s.quote && s.quote.name) || ''} ${s.code}`;
 
 async function saveStock(body, done) {
@@ -526,6 +527,7 @@ function editStock(code) {
   mode.value = s.displayMode || '';
   const cost = textField('成本价', 'number', s.costPrice);
   const shares = textField('持股数', 'number', s.shares);
+  shares.input.step = 1;
   const date = textField('买入日期', 'date', s.buyDate);
   const note = textField('备注', 'text', s.note);
   const enabled = el('input', { type: 'checkbox', checked: s.enabled });
@@ -533,7 +535,7 @@ function editStock(code) {
   dialogTick = () => {
     const now = findStock(code);
     const price = now && now.quote ? now.quote.price : null;
-    const c = numOrNull(cost.input), n = numOrNull(shares.input);
+    const c = numOrNull(cost.input), n = intOrNull(shares.input);
     if (price == null || !n) return setText(live, '填写持股数和成本价后，这里实时计算盈亏');
     const parts = [`现价 ${fmt(price, now.quote.decimals)}`, `市值 ${money(price * n)}`];
     let value = 0;
@@ -551,7 +553,7 @@ function editStock(code) {
     el('p', { class: 'hint' }, '日常买卖建议用“加仓”“减仓”“清仓”，会自动计算摊薄成本和已实现盈亏。'),
     el('label', { class: 'check', style: 'margin-top:10px' }, enabled, '启用（停用后不显示也不提醒）'),
   ], [el('button', { class: 'btn primary', type: 'button', onclick: () => saveStock({
-    code, alias: alias.input.value.trim(), displayMode: mode.value, costPrice: numOrNull(cost.input), shares: numOrNull(shares.input),
+    code, alias: alias.input.value.trim(), displayMode: mode.value, costPrice: numOrNull(cost.input), shares: intOrNull(shares.input),
     buyDate: date.input.value, note: note.input.value.trim(), enabled: enabled.checked,
   }, true) }, '保存')]);
 }
@@ -617,6 +619,7 @@ function tradeDialog(code, action) {
   const q = s.quote, d = q ? q.decimals : 2;
   const price = textField('成交价', 'number', q ? fmt(q.price, d) : '');
   const shares = textField(action === 'BUY' ? '加仓股数' : '减仓股数', 'number', '');
+  shares.input.step = 1;
   const live = el('div', { class: 'live' });
   const market = el('button', { class: 'btn', type: 'button', onclick: () => {
     const now = findStock(code);
@@ -627,7 +630,7 @@ function tradeDialog(code, action) {
     const now = findStock(code);
     if (!now) return;
     const p = numOrNull(price.input), held = now.shares || 0, cost = now.costPrice;
-    const qty = action === 'CLEAR' ? held : numOrNull(shares.input);
+    const qty = action === 'CLEAR' ? held : intOrNull(shares.input);
     if (!p || !qty) return setText(live, action === 'CLEAR' ? '请输入成交价' : '请输入成交价和股数', 'live');
     if (action === 'BUY') {
       const total = held + qty, next = ((cost ?? p) * held + p * qty) / total;
@@ -650,7 +653,7 @@ function tradeDialog(code, action) {
     tradeHistory(code),
   ], [el('button', { class: 'btn primary', type: 'button', onclick: async () => {
     try {
-      await api('/api/stocks/trade', { code, action, price: numOrNull(price.input), shares: action === 'CLEAR' ? undefined : numOrNull(shares.input) });
+      await api('/api/stocks/trade', { code, action, price: numOrNull(price.input), shares: action === 'CLEAR' ? undefined : intOrNull(shares.input) });
       $('editDialog').close();
       await refresh();
       toast(ACTION_LABEL[action] + '已记录');

@@ -186,7 +186,9 @@ object AppCore : WebBackend {
     /** 基于最新配置修改一只股票，避免覆盖 Web 后台同时做的改动。 */
     @Synchronized
     fun updateStock(code: String, change: (StockConfig) -> StockConfig) {
-        replaceStock(change(requireStock(code)))
+        // 弹窗打开期间股票可能已被 Web 后台删除，此时不需要保存
+        val current = cfg.stocks.firstOrNull { it.code == code } ?: return
+        replaceStock(change(current))
     }
 
     /** 本地记账，不产生真实交易。日志只记操作和代码，不记数量和价格。 */

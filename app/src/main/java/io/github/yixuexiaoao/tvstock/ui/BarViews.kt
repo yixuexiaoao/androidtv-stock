@@ -94,9 +94,14 @@ class HeaderView(context: Context) : View(context) {
         }
         if (s.showPortfolio && !s.privacy) {
             PortfolioSummary.of(config.stocks, quotes)?.let { p ->
-                val label = "持仓 ${Format.money(p.marketValue)}  今日 ${Format.signedMoney(p.dayProfit)}  累计 ${Format.signedMoney(p.profit)}"
+                val realized = if (p.realized != 0.0) "已实现 ${Format.signedMoney(p.realized)}" else ""
+                val label = if (p.count > 0) {
+                    "持仓 ${Format.money(p.marketValue)}  今日 ${Format.signedMoney(p.dayProfit)}  持仓盈亏 ${Format.signedMoney(p.profit)}  $realized"
+                } else {
+                    realized
+                }.trim()
                 if (x + paint.measureText(label) <= right) {
-                    paint.color = palette.forChange(p.profit)
+                    paint.color = palette.forChange(if (p.count > 0) p.profit else p.realized)
                     canvas.drawText(label, x, baseline, paint)
                 }
             }

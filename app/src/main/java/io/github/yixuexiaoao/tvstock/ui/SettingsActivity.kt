@@ -65,6 +65,8 @@ class SettingsActivity : Activity(), AppCore.Listener {
     override fun onStart() {
         super.onStart()
         AppCore.addListener(this)
+        // 不在前台期间错过了通知，这里同步一次
+        onConfig()
         onUpdate()
     }
 

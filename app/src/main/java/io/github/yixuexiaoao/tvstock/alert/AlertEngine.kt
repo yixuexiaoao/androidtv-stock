@@ -87,6 +87,6 @@ class AlertEngine {
     @Synchronized
     fun testEvent(code: String, name: String, modes: List<String>, nowMs: Long, price: Double, direction: String): AlertEvent {
         val label = if (direction == AlertEvent.DOWN) "下跌" else "上涨"
-        return AlertEvent(nextId++, code, name, "TEST", "$name $label提醒测试", price, nowMs, modes, isTest = true, direction = direction)
+        return AlertEvent(nextId++, code, name, "TEST", "$name ${label}提醒测试", price, nowMs, modes, isTest = true, direction = direction)
     }
 }
