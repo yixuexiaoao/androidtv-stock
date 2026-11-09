@@ -180,6 +180,11 @@ class ParserTest {
         assertEquals(0.0, list[1].avgPrice, 1e-9)
     }
 
+    @Test fun klineDropsPreOpenRowWithZeroPrices() {
+        val raw = """{"data":{"usAAPL.OQ":{"qfqday":[["2026-11-06","338.73","342.37","345.79","338.30","44703806"],["2026-11-09","0.00","342.37","0.00","0.00","669600"]]}}}"""
+        assertEquals(listOf("2026-11-06"), QuoteParser.parseKline(raw, "usAAPL.OQ", "day").map { it.date })
+    }
+
     @Test fun usKlineUsesExchangeKey() {
         val raw = """{"code":0,"data":{"usAAPL.OQ":{"qfqweek":[["2026-11-06","342.67","342.37","355.38","325.33","337938217.00"]]}}}"""
         assertEquals(342.37, QuoteParser.parseKline(raw, "usAAPL.OQ", "week").single().close, 1e-6)

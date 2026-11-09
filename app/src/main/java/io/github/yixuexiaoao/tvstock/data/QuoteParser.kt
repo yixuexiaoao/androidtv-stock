@@ -192,6 +192,8 @@ object QuoteParser {
             val close = row.optString(2).toDoubleOrNull() ?: return@mapNotNull null
             val high = row.optString(3).toDoubleOrNull() ?: return@mapNotNull null
             val low = row.optString(4).toDoubleOrNull() ?: return@mapNotNull null
+            // 开盘前当天这一条的开高低都是 0，留着会把纵轴拉到 0 以下，把其他 K 线压扁
+            if (open <= 0 || high <= 0 || low <= 0) return@mapNotNull null
             KLine(row.optString(0), open, close, high, low, row.optString(5).toDoubleOrNull() ?: 0.0)
         }
     }

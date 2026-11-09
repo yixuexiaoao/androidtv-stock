@@ -260,7 +260,9 @@ sleep 3
 shot 23-us-zoom
 key KEYCODE_BACK
 sleep 1
-# 遥控器切换：上键到顶部，左键移到 A股 标签，确认
+# 遥控器切换：上键到顶部（4 画面最多两行，多按一次也停在顶部），左键移到 A股 标签，确认
+key KEYCODE_DPAD_UP
+key KEYCODE_DPAD_UP
 key KEYCODE_DPAD_UP
 key KEYCODE_DPAD_LEFT
 key KEYCODE_DPAD_LEFT

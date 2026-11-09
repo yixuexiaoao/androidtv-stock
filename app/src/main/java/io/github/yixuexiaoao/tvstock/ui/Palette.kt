@@ -60,6 +60,9 @@ data class Palette(
 object Format {
     fun price(value: Double, decimals: Int = 2): String = "%.${decimals}f".format(value)
 
+    /** 开盘前开高低是 0，显示 -- 而不是 0.00。 */
+    fun priceOrDash(value: Double, decimals: Int = 2): String = if (value > 0) price(value, decimals) else "--"
+
     fun signed(value: Double, decimals: Int = 2): String = (if (value > 0) "+" else "") + "%.${decimals}f".format(value)
 
     fun percent(value: Double): String = signed(value) + "%"

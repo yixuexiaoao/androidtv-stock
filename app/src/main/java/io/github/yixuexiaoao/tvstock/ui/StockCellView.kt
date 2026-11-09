@@ -176,15 +176,15 @@ class StockCellView(context: Context) : View(context) {
 
     private val scale get() = settings.fontScale / 100f
 
-    private fun displayName(s: StockConfig, q: Quote): String {
+    private fun displayName(s: StockConfig, q: Quote, withTicker: Boolean = false): String {
         val badge = when {
             !q.hasTrade -> ""
             q.limitUp != null && q.limitUp > 0 && q.price >= q.limitUp -> " [涨停]"
             q.limitDown != null && q.limitDown > 0 && q.price <= q.limitDown -> " [跌停]"
             else -> ""
         }
-        // 美股名称可能很陌生，带上大家更熟悉的代码
-        val ticker = if (StockCodes.isUs(s.code)) " " + StockCodes.shortCode(s.code) else ""
+        // 图表窗口没有单独的代码位置；美股的中文名可能陌生，带上更熟悉的代码
+        val ticker = if (withTicker && StockCodes.isUs(s.code)) " " + StockCodes.shortCode(s.code) else ""
         return s.alias.ifBlank { q.name } + ticker + badge
     }
 
@@ -225,10 +225,10 @@ class StockCellView(context: Context) : View(context) {
 
     private fun statPairs(q: Quote): List<Pair<String, String>> = buildList {
         val d = q.decimals
-        add("今开" to Format.price(q.open, d))
+        add("今开" to Format.priceOrDash(q.open, d))
         add("昨收" to Format.price(q.prevClose, d))
-        add("最高" to Format.price(q.high, d))
-        add("最低" to Format.price(q.low, d))
+        add("最高" to Format.priceOrDash(q.high, d))
+        add("最低" to Format.priceOrDash(q.low, d))
         add("成交量" to Format.volume(q))
         add("成交额" to Format.amount(q))
         q.turnover?.let { add("换手" to "%.2f%%".format(it)) }
@@ -352,14 +352,14 @@ class StockCellView(context: Context) : View(context) {
         val priceW = paint.measureText(priceText)
         drawRight(c, priceText, right - pctW - base * 0.6f, top)
         setFont(headerSize, palette.text, bold = true)
-        drawLeft(c, displayName(s, q), pad, top, right - pad - pctW - priceW - base * 1.2f)
+        drawLeft(c, displayName(s, q, withTicker = true), pad, top, right - pad - pctW - priceW - base * 1.2f)
 
         val small = base * 0.82f
         val rowH = small * 1.4f
         val rows = mutableListOf<Pair<String, Int>>()
         val roomy = h > base * 8.5f
         if (mode == DisplayModes.MIXED && settings.showStats && roomy) {
-            rows += "高 ${Format.price(q.high, q.decimals)}  低 ${Format.price(q.low, q.decimals)}  量 ${Format.volume(q)}  额 ${Format.amount(q)}" to palette.subText
+            rows += "高 ${Format.priceOrDash(q.high, q.decimals)}  低 ${Format.priceOrDash(q.low, q.decimals)}  量 ${Format.volume(q)}  额 ${Format.amount(q)}" to palette.subText
         }
         if (roomy) rows += holdingLines(s, q)
 
