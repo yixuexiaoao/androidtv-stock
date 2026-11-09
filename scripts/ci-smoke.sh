@@ -91,7 +91,8 @@ wait_update_state() {
 check_update() {
   local state="" attempt
   for attempt in 1 2 3; do
-    state=$(check_update)
+    post /api/update/check '{}' > /dev/null
+    state=$(wait_update_state "AVAILABLE UP_TO_DATE ERROR")
     [ "$state" != "ERROR" ] && break
     note "检查更新第 $attempt 次出错"
     sleep 10
