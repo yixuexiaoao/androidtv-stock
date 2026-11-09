@@ -128,8 +128,8 @@ jobs:
           if-no-files-found: ignore
 
   release:
-    # 拉取请求只构建不发布
-    if: github.event_name != 'pull_request'
+    # 只发布 main 和 v* 标签；拉取请求、其他分支的手动运行只构建
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     needs: build
     runs-on: ubuntu-24.04
     permissions:

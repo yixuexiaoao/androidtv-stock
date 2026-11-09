@@ -93,6 +93,12 @@ class SettingsActivity : Activity(), AppCore.Listener {
     private fun number(label: String, values: List<Int>, current: () -> Int, unit: String, key: String, zero: String? = null): Row =
         Row(label, { if (current() == 0 && zero != null) zero else "${current()}$unit" }, { d -> put(key, steppedNumber(values, current(), d)) })
 
+    /** HH:mm 可按字符串比较；Web 后台可能设置了非整半点的时间，这里走向相邻的半点。 */
+    private fun time(label: String, current: () -> String, key: String): Row = Row(label, current, { d ->
+        val now = current()
+        put(key, if (d > 0) TIMES.firstOrNull { it > now } ?: TIMES.first() else TIMES.lastOrNull { it < now } ?: TIMES.last())
+    })
+
     private fun toggle(label: String, current: () -> Boolean, key: String): Row =
         Row(label, { if (current()) "开" else "关" }, { _ -> put(key, !current()) })
 
@@ -117,8 +123,8 @@ class SettingsActivity : Activity(), AppCore.Listener {
                 choice("K线周期", listOf("day", "week", "month"), { settings.klinePeriod }, { mapOf("day" to "日K", "week" to "周K", "month" to "月K")[it] ?: it }, "klinePeriod"),
                 number("字体大小", listOf(50, 60, 70, 80, 90, 100, 110, 120, 130, 150, 175, 200, 250), { settings.fontScale }, "%", "fontScale"),
                 choice("主题", Themes.ALL, { settings.theme }, Themes::label, "theme"),
-                choice("白天开始（自动主题）", TIMES, { settings.dayStart }, { it }, "dayStart"),
-                choice("夜晚开始（自动主题）", TIMES, { settings.nightStart }, { it }, "nightStart"),
+                time("白天开始（自动主题）", { settings.dayStart }, "dayStart"),
+                time("夜晚开始（自动主题）", { settings.nightStart }, "nightStart"),
                 choice("涨跌颜色", listOf("RED_UP", "GREEN_UP"), { settings.colorScheme }, { if (it == "RED_UP") "红涨绿跌" else "绿涨红跌" }, "colorScheme"),
                 number("窗口间距", listOf(0, 2, 4, 6, 8, 12, 16), { settings.gridGap }, "px", "gridGap"),
                 number("屏幕边距（画面被裁切时调大）", listOf(0, 8, 16, 24, 32, 48, 64), { settings.screenMargin }, "dp", "screenMargin"),

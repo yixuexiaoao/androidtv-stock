@@ -69,7 +69,10 @@ class QuoteRepository(
             if (foreground || backgroundAllowed) pollOnce()
         } catch (t: Throwable) {
             // 只在状态变化时记录，断网期间不刷屏
-            if (lastError == null) AppLog.w(TAG, "行情获取失败", t)
+            if (lastError == null) {
+                // 网络问题记警告；其他异常是代码缺陷，要带堆栈才能定位
+                if (t is java.io.IOException) AppLog.w(TAG, "行情获取失败", t) else AppLog.e(TAG, "行情处理异常", t)
+            }
             lastError = t.message ?: t.javaClass.simpleName
         }
         schedule(if (wakePending.get()) 0 else nextDelayMs())

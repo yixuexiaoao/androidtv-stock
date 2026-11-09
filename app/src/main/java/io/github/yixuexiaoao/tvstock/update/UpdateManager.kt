@@ -24,7 +24,7 @@ object UpdateManager {
     enum class State { IDLE, CHECKING, UP_TO_DATE, AVAILABLE, DOWNLOADING, READY, ERROR }
 
     private const val TAG = "Update"
-    private const val API = "https://api.github.com/repos/yixuexiaoao/androidtv-stock/releases?per_page=30"
+    private const val RELEASES = "https://api.github.com/repos/yixuexiaoao/androidtv-stock/releases"
     private const val AUTO_INTERVAL_MS = 12 * 3600_000L
 
     private val worker = Executors.newSingleThreadExecutor()
@@ -91,17 +91,35 @@ object UpdateManager {
         worker.execute(::doCheck)
     }
 
+    private class HttpStatusException(val code: Int) : IOException("HTTP $code")
+
+    private fun readText(url: String): String {
+        val conn = openGet(url)
+        try {
+            return conn.inputStream.use { it.readBytes() }.toString(Charsets.UTF_8)
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    /**
+     * 每次推送都会新增预发布版，正式版可能排在很后面，所以只看正式版时直接查 latest。
+     * latest 只指向正式版；还没有正式版时接口返回 404。
+     */
+    private fun fetchReleasesJson(includePre: Boolean): String {
+        if (includePre) return readText("$RELEASES?per_page=30")
+        return try {
+            "[" + readText("$RELEASES/latest") + "]"
+        } catch (e: HttpStatusException) {
+            if (e.code == 404) "[]" else throw e
+        }
+    }
+
     private fun doCheck() {
         try {
-            val json = openGet(API).let { conn ->
-                try {
-                    conn.inputStream.use { it.readBytes() }.toString(Charsets.UTF_8)
-                } finally {
-                    conn.disconnect()
-                }
-            }
+            val includePre = includePrerelease()
             val abis = Build.SUPPORTED_ABIS.toList()
-            val newest = ReleaseParser.newest(ReleaseParser.parse(json, abis), includePrerelease())
+            val newest = ReleaseParser.newest(ReleaseParser.parse(fetchReleasesJson(includePre), abis), includePre)
             if (newest != null && Versions.compare(newest.version, BuildConfig.VERSION_NAME) > 0) {
                 release = newest
                 AppLog.i(TAG, "发现新版本 ${newest.version}（当前 ${BuildConfig.VERSION_NAME}），安装包 ${newest.apkName}")
@@ -115,6 +133,8 @@ object UpdateManager {
             fail("检查更新失败，请检查网络", e)
         } catch (e: org.json.JSONException) {
             fail("更新信息解析失败", e)
+        } catch (e: RuntimeException) {
+            fail("检查更新出错，详见日志", e)
         }
     }
 
@@ -170,6 +190,10 @@ object UpdateManager {
             file.delete()
             installRequested = false
             fail(e.message?.takeIf { it.startsWith("校验") } ?: "下载失败，请检查网络", e)
+        } catch (e: RuntimeException) {
+            file.delete()
+            installRequested = false
+            fail("更新包处理出错，详见日志", e)
         }
     }
 
@@ -241,19 +265,19 @@ object UpdateManager {
         if (conn.responseCode !in 200..299) {
             val code = conn.responseCode
             conn.disconnect()
-            throw IOException("HTTP $code")
+            throw HttpStatusException(code)
         }
         return conn
     }
 
     /** 给界面显示的一句话状态。 */
     fun statusText(): String = when (state) {
-        State.IDLE -> "当前 ${BuildConfig.VERSION_NAME}，按确认键检查"
+        State.IDLE -> "当前 ${BuildConfig.VERSION_NAME}"
         State.CHECKING -> "正在检查…"
         State.UP_TO_DATE -> "已是最新（${BuildConfig.VERSION_NAME}）"
-        State.AVAILABLE -> "发现新版本 ${release?.version}，按确认键查看"
+        State.AVAILABLE -> "发现新版本 ${release?.version}"
         State.DOWNLOADING -> "正在下载 $progress%"
-        State.READY -> "已下载 ${release?.version}，按确认键安装"
+        State.READY -> "已下载 ${release?.version}，可以安装"
         State.ERROR -> errorMessage
     }
 
