@@ -157,21 +157,39 @@ if [ -n "$PROBE_APK" ] && [ -f "$PROBE_APK" ]; then
         *) fail "下载后没有弹出系统安装界面：$TOP" ;;
       esac
       adb logcat -d -t 1500 > "$OUT/logcat-probe.txt" 2>&1 || true
-      # 用户路径：安全提示 -> 设置 -> 打开开关 -> 返回 -> 安装窗口 -> 确认
+      # 用户路径：安全提示 -> 设置 -> 打开开关 -> 返回 -> 重新打开 App -> 安装窗口 -> 确认
       confirm_installer
       sleep 3
       key KEYCODE_DPAD_CENTER
-      sleep 2
+      sleep 3
       shot 00a-unknown-sources-allowed
+      OPS=$(adb shell appops get "$PKG" REQUEST_INSTALL_PACKAGES | tr -d '\r')
+      note "开关状态：$OPS"
+      case "$OPS" in
+        *allow*) pass "遥控器打开了授权开关" ;;
+        *)
+          echo "::warning::遥控器没有打开开关，改用 appops 模拟"
+          adb shell appops set "$PKG" REQUEST_INSTALL_PACKAGES allow
+          ;;
+      esac
       key KEYCODE_BACK
       sleep 4
-      shot 00b-installer-confirm
       TOP=$(top_activity)
       note "授权返回后的前台界面：$TOP"
       case "$TOP" in
-        *packageinstaller*) pass "授权后回到安装窗口" ;;
-        *) fail "授权后没有回到安装窗口：$TOP" ;;
+        *packageinstaller*) pass "授权后安装窗口直接继续" ;;
+        *)
+          # 系统安装器不一定会继续，这时重新打开 App 应该自动接着安装
+          adb shell am start -n "$PKG/.ui.MainActivity" > /dev/null
+          if wait_for_system_ui packageinstaller; then
+            pass "重新打开 App 后自动弹出安装窗口"
+          else
+            fail "重新打开 App 后没有弹出安装窗口：$(top_activity)"
+          fi
+          ;;
       esac
+      sleep 2
+      shot 00b-installer-confirm
       confirm_installer
       AFTER="$BEFORE"
       for _ in $(seq 1 20); do

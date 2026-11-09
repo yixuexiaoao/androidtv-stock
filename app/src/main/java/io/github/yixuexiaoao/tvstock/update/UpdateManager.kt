@@ -49,19 +49,35 @@ object UpdateManager {
 
     fun init(context: Context) {
         app = context.applicationContext
-        worker.execute(::deleteStaleApk)
+        worker.execute(::restoreDownloadedApk)
     }
 
+    private fun canInstallPackages(context: Context): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.O || context.packageManager.canRequestPackageInstalls()
+
+    /** 等待授权的标记：系统在“安装未知应用”权限变化时会杀掉本进程，内存里的状态都会丢。 */
+    private fun pendingMarker(context: Context) = File(context.filesDir, "update.pending")
+
     /**
-     * 只删已经装上（版本不比当前新）的安装包。调起安装器后本进程可能被系统回收，
-     * 安装器读取安装包时又会把进程拉起来，这时不能把它正在用的文件删掉。
+     * 只删已经装上（版本不比当前新）的安装包，更新的留着不用重新下载。
+     * 第一次安装时系统会在权限变化时杀掉本进程；如果用户已经授权，重新打开 App 就接着安装。
      */
     @Suppress("DEPRECATION")
-    private fun deleteStaleApk() {
+    private fun restoreDownloadedApk() {
+        val marker = pendingMarker(app)
         val file = apkFile(app)
-        if (!file.exists()) return
-        val archive = app.packageManager.getPackageArchiveInfo(file.path, 0)
-        if (archive == null || archive.versionCode <= BuildConfig.VERSION_CODE) file.delete()
+        val archive = if (file.exists()) app.packageManager.getPackageArchiveInfo(file.path, 0) else null
+        if (archive == null || archive.packageName != app.packageName || archive.versionCode <= BuildConfig.VERSION_CODE) {
+            file.delete()
+            marker.delete()
+            return
+        }
+        if (!marker.exists() || !canInstallPackages(app)) return
+        marker.delete()
+        release = ReleaseInfo(archive.versionName.orEmpty(), false, "", "", file.name, "", file.length(), "")
+        installRequested = true
+        AppLog.i(TAG, "已授权，继续安装 ${archive.versionName}")
+        set(State.READY)
     }
 
     /**
@@ -293,7 +309,14 @@ object UpdateManager {
             set(if (release != null) State.AVAILABLE else State.IDLE)
             return
         }
-        // 不预先检查“安装未知应用”权限：没有权限时系统安装器会自己引导授权，授权后接着安装
+        // 不预先检查“安装未知应用”权限：没有权限时系统安装器会自己引导授权
+        if (!canInstallPackages(activity)) {
+            try {
+                pendingMarker(activity).writeText(release?.version.orEmpty())
+            } catch (e: IOException) {
+                AppLog.w(TAG, "无法记录待安装状态", e)
+            }
+        }
         val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             Uri.parse("content://${activity.packageName}.apk/update.apk")
         } else {
