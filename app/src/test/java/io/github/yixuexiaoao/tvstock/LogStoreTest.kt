@@ -44,6 +44,15 @@ class LogStoreTest {
         assertEquals("boom\n\tat Foo.bar(Foo.kt:1)\\path", entry.message)
     }
 
+    @Test fun addsBeforeFirstQueryAreNotLostOrDuplicated() {
+        LogStore(file()).add(1, "I", "T", "old")
+        val s = LogStore(file())
+        s.add(2, "I", "T", "before query")
+        assertEquals(listOf(2L, 1L), s.query().map { it.timeMs })
+        s.add(3, "I", "T", "after query")
+        assertEquals(listOf(3L, 2L, 1L), s.query().map { it.timeMs })
+    }
+
     @Test fun corruptLinesAreSkipped() {
         file().parentFile!!.mkdirs()
         file().writeText("garbage\nabc\tI\tT\tm\n5\tI\tT\tgood\n7\tZ\tT\tbadlevel\n")

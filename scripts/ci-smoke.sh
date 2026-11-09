@@ -90,6 +90,16 @@ wait_update_state() {
 top_activity() { adb shell dumpsys activity activities | grep -m1 -E 'mResumedActivity|topResumedActivity' | tr -d '\r'; }
 installed_version() { adb shell dumpsys package "$PKG" | grep -m1 versionName | tr -d ' \r' | cut -d= -f2; }
 
+# 等系统界面出现在前台，最多 60 秒
+wait_for_system_ui() {
+  local pattern="$1"
+  for _ in $(seq 1 30); do
+    top_activity | grep -qE "$pattern" && return 0
+    sleep 2
+  done
+  return 1
+}
+
 # 点系统安装窗口的确认按钮（标准对话框的 button1），找不到时退回按键
 confirm_installer() {
   adb shell uiautomator dump /sdcard/ui.xml > /dev/null
@@ -134,40 +144,33 @@ if [ -n "$PROBE_APK" ] && [ -f "$PROBE_APK" ]; then
     state=$(check_update)
     echo "低版本构建检查更新结果：$state"
     if [ "$state" = "AVAILABLE" ]; then
+      BEFORE=$(installed_version)
       post /api/update/install '{}' > /dev/null
-      state=$(wait_update_state "READY ERROR")
-      [ "$state" = "READY" ] && pass "当前代码下载并校验通过" || fail "当前代码下载失败：$state"
-      # READY 后 App 会调起安装器并退到后台，先回到 App 才能读日志
-      sleep 3
+      # 安装窗口全屏打开后 App 退到后台、Web 关闭，所以直接看前台，不能把 App 拉回来挡住它
+      wait_for_system_ui packageinstaller
+      sleep 2
       shot 00-update-probe
-      # 没有授权时也应该由系统接管（安装器的授权引导），不能停在 App 里只给提示
       TOP=$(top_activity)
       note "下载后的前台界面：$TOP"
       case "$TOP" in
-        ""|*"$PKG/"*) fail "下载后没有弹出系统安装界面：$TOP" ;;
-        *) pass "下载后自动弹出系统界面" ;;
+        *packageinstaller*) pass "下载后自动弹出系统安装界面（未授权）" ;;
+        *) fail "下载后没有弹出系统安装界面：$TOP" ;;
       esac
+      adb logcat -d -t 1500 > "$OUT/logcat-probe.txt" 2>&1 || true
+      # 用户路径：安全提示 -> 设置 -> 打开开关 -> 返回 -> 安装窗口 -> 确认
+      confirm_installer
+      sleep 3
+      key KEYCODE_DPAD_CENTER
+      sleep 2
+      shot 00a-unknown-sources-allowed
       key KEYCODE_BACK
-      launch 4
-      get '/api/logs?level=D&limit=200' | json "'\n'.join(e['msg'] for e in reversed(d) if e['tag']=='Update')" > "$OUT/update-log.txt" || true
-      cat "$OUT/update-log.txt"
-      # API 被限流时回退到 github.com 是预期行为，只提示不判失败
-      if grep -q '来源 api.github.com' "$OUT/update-log.txt"; then
-        pass "下载走 API 资源地址"
-      else
-        echo "::warning::下载没有走 API 资源地址（可能是接口限流后回退）"
-      fi
-      # 已授权：走完弹窗、确认、覆盖安装（相当于用户在授权页打开开关之后）
-      BEFORE=$(installed_version)
-      adb shell appops set "$PKG" REQUEST_INSTALL_PACKAGES allow
-      post /api/update/install '{}' > /dev/null
-      sleep 5
+      sleep 4
       shot 00b-installer-confirm
       TOP=$(top_activity)
-      note "已授权时的前台界面：$TOP"
+      note "授权返回后的前台界面：$TOP"
       case "$TOP" in
-        *packageinstaller*) pass "已授权时直接弹出安装窗口" ;;
-        *) fail "已授权时没有弹出安装窗口：$TOP" ;;
+        *packageinstaller*) pass "授权后回到安装窗口" ;;
+        *) fail "授权后没有回到安装窗口：$TOP" ;;
       esac
       confirm_installer
       AFTER="$BEFORE"
@@ -181,6 +184,17 @@ if [ -n "$PROBE_APK" ] && [ -f "$PROBE_APK" ]; then
         pass "App 内更新完成：$BEFORE -> $AFTER"
       else
         fail "确认后版本没有变化：$BEFORE -> $AFTER"
+      fi
+      launch 6
+      if find_port; then
+        get '/api/logs?level=D&limit=200' | json "'\n'.join(e['msg'] for e in reversed(d) if e['tag']=='Update')" > "$OUT/update-log.txt" || true
+      fi
+      cat "$OUT/update-log.txt"
+      # API 被限流时回退到 github.com 是预期行为，只提示不判失败
+      if grep -q '来源 api.github.com' "$OUT/update-log.txt"; then
+        pass "下载走 API 资源地址"
+      else
+        echo "::warning::下载没有走 API 资源地址（可能是接口限流后回退）"
       fi
     elif [ "$state" = "ERROR" ]; then
       echo "::warning::检查更新出错（可能是接口限流）"
@@ -207,10 +221,9 @@ if [ -n "$OLD_APK" ] && [ -f "$OLD_APK" ]; then
     echo "旧版本检查更新结果：$state"
     if [ "$state" = "AVAILABLE" ]; then
       post /api/update/install '{}' > /dev/null
-      # 下载后状态变为 READY，随后调起安装器或未知来源设置页
-      state=$(wait_update_state "READY ERROR")
-      if [ "$state" = "READY" ]; then pass "更新包下载并校验通过"; else fail "更新包下载失败：$state"; fi
-      sleep 3
+      # 下载校验通过后，旧版本会打开未知来源设置页，新版本会弹出安装窗口
+      if wait_for_system_ui 'packageinstaller|settings'; then pass "更新包下载并校验通过"; else fail "更新包下载后没有调起系统界面：$(top_activity)"; fi
+      sleep 2
       shot 00-update-installer
       key KEYCODE_BACK
     elif [ "$state" = "ERROR" ]; then

@@ -378,16 +378,24 @@ class MainActivity : Activity(), AppCore.Listener {
         cells.forEachIndexed { i, cell ->
             val stock = visible.getOrNull(i)
             val changed = cell.stock?.code != stock?.code
+            val nextQuote = stock?.let { AppCore.repo.quotes[it.code] }
+            val nextMinutes = stock?.let { AppCore.repo.minutes[it.code] }.orEmpty()
+            val nextKlines = stock?.let { AppCore.repo.klines[it.code]?.lines }.orEmpty()
+            val nextMode = if (zoom != null) zoomMode else ""
+            // 每轮行情都会走到这里，内容没变化就不重绘，低配电视能省不少 CPU
+            val dirty = cell.stock != stock || cell.settings !== s || cell.palette != palette ||
+                cell.detail != (zoom != null) || cell.modeOverride != nextMode || cell.quote != nextQuote ||
+                cell.minutePoints !== nextMinutes || cell.klineList !== nextKlines
             cell.stock = stock
             cell.settings = s
             cell.palette = palette
             cell.detail = zoom != null
-            cell.modeOverride = if (zoom != null) zoomMode else ""
+            cell.modeOverride = nextMode
             if (changed) cell.updateQuote(null)
             if (stock != null) {
-                cell.updateQuote(AppCore.repo.quotes[stock.code])
-                cell.minutePoints = AppCore.repo.minutes[stock.code].orEmpty()
-                cell.klineList = AppCore.repo.klines[stock.code]?.lines.orEmpty()
+                cell.updateQuote(nextQuote)
+                cell.minutePoints = nextMinutes
+                cell.klineList = nextKlines
                 when (cell.displayMode()) {
                     DisplayModes.MIXED, DisplayModes.MINUTE -> minuteWanted += stock.code
                     DisplayModes.KLINE -> klineWanted += stock.code
@@ -397,7 +405,7 @@ class MainActivity : Activity(), AppCore.Listener {
                 cell.klineList = emptyList()
             }
             cell.isFocusable = stock != null
-            cell.invalidate()
+            if (dirty) cell.invalidate()
         }
         if (focusedCode != null) {
             cells.firstOrNull { it.stock?.code == focusedCode && !it.isFocused }?.requestFocus()

@@ -22,16 +22,17 @@ object QuoteApi {
 
     private fun fetchOnce(url: String, charset: Charset, referer: String?): String {
         val conn = URL(url).openConnection() as HttpURLConnection
-        try {
-            conn.connectTimeout = 5000
-            conn.readTimeout = 6000
-            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) AndroidTV-Stock")
-            referer?.let { conn.setRequestProperty("Referer", it) }
-            if (conn.responseCode !in 200..299) throw IOException("HTTP ${conn.responseCode}")
-            return conn.inputStream.use { it.readBytes() }.toString(charset)
-        } finally {
+        conn.connectTimeout = 5000
+        conn.readTimeout = 6000
+        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) AndroidTV-Stock")
+        referer?.let { conn.setRequestProperty("Referer", it) }
+        val code = conn.responseCode
+        if (code !in 200..299) {
             conn.disconnect()
+            throw IOException("HTTP $code")
         }
+        // 读完并关闭就能复用连接；调用 disconnect 的话，每次刷新都要重新做 TLS 握手
+        return conn.inputStream.use { it.readBytes() }.toString(charset)
     }
 
     /** 老电视常因根证书过旧或系统时间错误导致 TLS 失败，此时回退 HTTP。 */

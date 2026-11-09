@@ -1,4 +1,4 @@
-# A股看盘TV（androidtv-stock）
+# 电视看盘（androidtv-stock）
 
 在 Android TV / 电视盒子上看 A 股和美股行情，首页一键切换。遥控器操作，多画面同屏，局域网 Web 后台设置，到价闪烁提醒。
 
@@ -90,7 +90,7 @@ Web 后台“日志”页可以查看、筛选、下载和清除日志，文件�
 通过 adb 安装：
 
 ```bash
-adb install -r androidtv-stock-1.1.0-arm64-v8a-release.apk
+adb install -r androidtv-stock-1.2.0-arm64-v8a-release.apk
 ```
 
 本 App 是纯 Kotlin 实现，不含原生库，所以 v7、v8 两个包的代码相同，只是按架构分别打包。

@@ -6,8 +6,9 @@ import java.io.IOException
 data class LogEntry(val timeMs: Long, val level: String, val tag: String, val message: String)
 
 /**
- * 日志存储：内存保留最近若干条，同时追加到文件，重启后还能看到上次运行（含崩溃）的日志。
+ * 日志存储：追加到文件，重启后还能看到上次运行（含崩溃）的日志；内存保留最近若干条。
  * 每条立即写盘，日志量很小，这样进程崩溃也不会丢。
+ * 文件第一次查询时才读入内存，不拖慢 App 启动。
  */
 class LogStore(
     private val file: File?,
@@ -17,11 +18,12 @@ class LogStore(
     private val entries = ArrayDeque<LogEntry>()
     private val backup: File? = file?.let { File(it.parentFile, it.name + ".1") }
 
-    init {
-        load()
-    }
+    /** 没有文件时没有可读的历史，内存就是全部。 */
+    private var loaded = file == null
 
-    private fun load() {
+    private fun ensureLoaded() {
+        if (loaded) return
+        loaded = true
         try {
             listOfNotNull(backup, file).filter { it.exists() }.forEach { source ->
                 source.readLines().forEach { line -> decode(line)?.let(::remember) }
@@ -39,7 +41,8 @@ class LogStore(
     @Synchronized
     fun add(timeMs: Long, level: String, tag: String, message: String) {
         val entry = LogEntry(timeMs, level, tag, message.take(MAX_MESSAGE))
-        remember(entry)
+        // 还没读入内存时只写文件，第一次查询时会一起读出来
+        if (loaded) remember(entry)
         val target = file ?: return
         try {
             target.parentFile?.mkdirs()
@@ -56,6 +59,7 @@ class LogStore(
     /** 返回最新的在前。minLevel 为 D/I/W/E，keyword 不区分大小写。 */
     @Synchronized
     fun query(minLevel: String? = null, keyword: String? = null, limit: Int = capacity): List<LogEntry> {
+        ensureLoaded()
         val floor = LEVELS.indexOf(minLevel).coerceAtLeast(0)
         val word = keyword?.trim().orEmpty()
         return entries.asReversed().asSequence()
@@ -67,6 +71,7 @@ class LogStore(
 
     @Synchronized
     fun clear() {
+        loaded = true
         entries.clear()
         file?.delete()
         backup?.delete()

@@ -49,8 +49,19 @@ object UpdateManager {
 
     fun init(context: Context) {
         app = context.applicationContext
-        // 上次的更新包已经没用了（可能已安装）
-        worker.execute { apkFile(app).delete() }
+        worker.execute(::deleteStaleApk)
+    }
+
+    /**
+     * 只删已经装上（版本不比当前新）的安装包。调起安装器后本进程可能被系统回收，
+     * 安装器读取安装包时又会把进程拉起来，这时不能把它正在用的文件删掉。
+     */
+    @Suppress("DEPRECATION")
+    private fun deleteStaleApk() {
+        val file = apkFile(app)
+        if (!file.exists()) return
+        val archive = app.packageManager.getPackageArchiveInfo(file.path, 0)
+        if (archive == null || archive.versionCode <= BuildConfig.VERSION_CODE) file.delete()
     }
 
     /**
@@ -163,6 +174,11 @@ object UpdateManager {
         AppLog.i(TAG, "开始下载 ${target.apkName}（${target.apkSize} 字节）")
         var lastError: Throwable? = null
         try {
+            if (alreadyDownloaded(file, target)) {
+                AppLog.i(TAG, "已有校验通过的安装包：${target.version}")
+                set(State.READY)
+                return
+            }
             for (round in 1..DOWNLOAD_ROUNDS) {
                 for (url in target.downloadUrls()) {
                     try {
@@ -186,6 +202,26 @@ object UpdateManager {
             file.delete()
             installRequested = false
             fail("更新包处理出错，详见日志", e)
+        }
+    }
+
+    private fun alreadyDownloaded(file: File, target: ReleaseInfo): Boolean {
+        if (!file.exists() || target.sha256.isEmpty()) return false
+        return try {
+            val digest = MessageDigest.getInstance("SHA-256")
+            file.inputStream().use { input ->
+                val buffer = ByteArray(32 * 1024)
+                while (true) {
+                    val n = input.read(buffer)
+                    if (n < 0) break
+                    digest.update(buffer, 0, n)
+                }
+            }
+            verify(file, target, digest.digest())
+            true
+        } catch (e: IOException) {
+            // 读不了或校验不过（VerifyException 也是 IOException）都当作没下载过
+            false
         }
     }
 

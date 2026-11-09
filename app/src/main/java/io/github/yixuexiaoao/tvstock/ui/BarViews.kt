@@ -75,25 +75,26 @@ class HeaderView(context: Context) : View(context) {
             canvas.drawText("网络异常", right, baseline, paint)
             right -= paint.measureText("网络异常") + gap
         }
+        val indices = if (s.showIndices) indexLabels(s.market) else emptyList()
         if (webUrl.isNotEmpty()) {
-            paint.color = palette.subText
             val urlText = "后台 " + webUrl.removePrefix("http://")
-            canvas.drawText(urlText, right, baseline, paint)
-            right -= paint.measureText(urlText) + gap
+            val urlW = paint.measureText(urlText) + gap
+            // 指数优先：放不下时不显示后台地址，设置页和二维码里还能看到
+            if (gap * 0.3f + indices.sumOf { (paint.measureText(it.first) + gap).toDouble() } + urlW <= right) {
+                paint.color = palette.subText
+                canvas.drawText(urlText, right, baseline, paint)
+                right -= urlW
+            }
         }
 
         paint.textAlign = Paint.Align.LEFT
         var x = gap * 0.3f
-        if (s.showIndices) {
-            for ((code, name) in if (s.market == Markets.US) US_INDICES else CN_INDICES) {
-                val q = quotes[code] ?: continue
-                val label = "$name ${Format.price(q.displayPrice)} ${Format.percent(q.changePct)}"
-                val w = paint.measureText(label)
-                if (x + w > right) break
-                paint.color = palette.forChange(q.change)
-                canvas.drawText(label, x, baseline, paint)
-                x += w + gap
-            }
+        for ((label, change) in indices) {
+            val w = paint.measureText(label)
+            if (x + w > right) break
+            paint.color = palette.forChange(change)
+            canvas.drawText(label, x, baseline, paint)
+            x += w + gap
         }
         if (s.showPortfolio && !s.privacy) {
             val usd = s.market == Markets.US
@@ -113,6 +114,11 @@ class HeaderView(context: Context) : View(context) {
         }
     }
 
+    private fun indexLabels(market: String): List<Pair<String, Double>> =
+        (if (market == Markets.US) US_INDICES else CN_INDICES).mapNotNull { (code, name) ->
+            quotes[code]?.let { q -> "$name ${Format.price(q.displayPrice)} ${Format.percent(q.changePct)}" to q.change }
+        }
+
     private companion object {
         val CN_INDICES = listOf("sh000001" to "上证", "sz399001" to "深证", "sz399006" to "创业板")
         val US_INDICES = listOf("us.DJI" to "道指", "us.IXIC" to "纳指", "us.INX" to "标普")
@@ -121,12 +127,24 @@ class HeaderView(context: Context) : View(context) {
 
 /** 底部滚动行情条。 */
 class TickerView(context: Context) : View(context) {
+    private class Item(val text: String, val change: Double, val width: Float)
+
     var config = AppConfig()
+        set(value) {
+            field = value
+            itemsDirty = true
+        }
     var quotes: Map<String, Quote> = emptyMap()
+        set(value) {
+            field = value
+            itemsDirty = true
+        }
     var palette = Palette.of(config.settings)
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private var offset = 0f
+    private var items = emptyList<Item>()
+    private var itemsDirty = true
     private var running = false
 
     private val tick = object : Runnable {
@@ -155,28 +173,42 @@ class TickerView(context: Context) : View(context) {
         super.onDetachedFromWindow()
     }
 
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        itemsDirty = true
+    }
+
+    /** 每秒最多重建一次（行情和配置更新时）；滚动时每帧只画屏幕内的文字。 */
+    private fun rebuildItems() {
+        itemsDirty = false
+        val market = config.settings.market
+        items = config.stocks.filter { it.enabled && StockCodes.market(it.code) == market }.mapNotNull { s ->
+            quotes[s.code]?.let { q ->
+                val text = "${s.alias.ifBlank { q.name }} ${Format.price(q.displayPrice, q.decimals)} ${Format.percent(q.changePct)}"
+                Item(text, q.change, paint.measureText(text))
+            }
+        }
+    }
+
     override fun onDraw(canvas: Canvas) {
         canvas.drawColor(palette.background)
         val h = height.toFloat()
         paint.textSize = h * 0.6f
         val baseline = h * 0.72f
         val gap = h * 1.2f
-        val market = config.settings.market
-        val items = config.stocks.filter { it.enabled && StockCodes.market(it.code) == market }.mapNotNull { s ->
-            quotes[s.code]?.let { q ->
-                "${s.alias.ifBlank { q.name }} ${Format.price(q.displayPrice, q.decimals)} ${Format.percent(q.changePct)}" to q.change
-            }
-        }
+        if (itemsDirty) rebuildItems()
         if (items.isEmpty()) return
-        val total = items.sumOf { (paint.measureText(it.first) + gap).toDouble() }.toFloat()
+        val total = items.sumOf { (it.width + gap).toDouble() }.toFloat()
         if (total <= 0) return
         offset %= total
         var x = -offset
         while (x < width) {
-            for ((text, change) in items) {
-                paint.color = palette.forChange(change)
-                canvas.drawText(text, x, baseline, paint)
-                x += paint.measureText(text) + gap
+            for (item in items) {
+                if (x < width && x + item.width > 0) {
+                    paint.color = palette.forChange(item.change)
+                    canvas.drawText(item.text, x, baseline, paint)
+                }
+                x += item.width + gap
             }
         }
     }

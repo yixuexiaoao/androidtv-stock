@@ -63,6 +63,12 @@ class UpdateTest {
         assertEquals(listOf("1.0.0"), ReleaseParser.parse(json, listOf("arm64-v8a")).map { it.version })
     }
 
+    @Test fun releaseNotesBecomePlainText() {
+        val body = "## 1.2.0\n\n### 修复\n- 修好了 **下载**\n- 改了 `代码`\n\n**Full Changelog**: https://x/compare"
+        assertEquals("【修复】\n• 修好了 下载\n• 改了 代码", ReleaseParser.cleanNotes(body))
+        assertEquals("", ReleaseParser.cleanNotes("**Full Changelog**: https://x/compare"))
+    }
+
     @Test fun apiDownloadUrlComesFirst() {
         val r = ReleaseParser.parse("[${release("1.0.1", false)}]", listOf("arm64-v8a")).single()
         assertEquals(listOf("https://api/1.0.1/arm64-v8a", "https://x/1.0.1/arm64-v8a"), r.downloadUrls())

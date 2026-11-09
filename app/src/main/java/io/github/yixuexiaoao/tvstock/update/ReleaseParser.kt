@@ -93,7 +93,7 @@ object ReleaseParser {
         return ReleaseInfo(
             version = tag.removePrefix("v"),
             prerelease = release.optBoolean("prerelease", false),
-            notes = release.optString("body", "").take(MAX_NOTES),
+            notes = cleanNotes(release.optString("body", "")).take(MAX_NOTES),
             pageUrl = release.optString("html_url", ""),
             apkName = asset.optString("name", ""),
             apkUrl = asset.optString("browser_download_url", ""),
@@ -102,6 +102,20 @@ object ReleaseParser {
             apkApiUrl = asset.optString("url", ""),
         )
     }
+
+    /** 更新说明是 Markdown，弹窗里显示纯文字；GitHub 自动生成的对比链接没有阅读价值。 */
+    fun cleanNotes(body: String): String = body.lines()
+        .map { it.trim() }
+        .filterNot { it.startsWith("**Full Changelog") || it.startsWith("## ") }
+        .map { line ->
+            when {
+                line.startsWith("### ") -> "【" + line.removePrefix("### ") + "】"
+                line.startsWith("- ") -> "• " + line.removePrefix("- ")
+                else -> line
+            }.replace("**", "").replace("`", "")
+        }
+        .joinToString("\n")
+        .trim()
 
     /** 优先选设备支持的架构，其次通用包。 */
     private fun chooseAsset(assets: JSONArray, abis: List<String>): JSONObject? {

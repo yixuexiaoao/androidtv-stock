@@ -180,29 +180,6 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      # 缓存模拟器快照，不用每次冷启动
-      - name: Cache emulator snapshot
-        uses: actions/cache@v4
-        id: avd-cache
-        with:
-          path: |
-            ~/.android/avd/*
-            ~/.android/adb*
-          key: avd-api30-android-tv-x86-tv_1080p-v1
-
-      - name: Create emulator snapshot
-        if: steps.avd-cache.outputs.cache-hit != 'true'
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 30
-          target: android-tv
-          arch: x86
-          profile: tv_1080p
-          force-avd-creation: false
-          disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: echo "快照已生成"
-
       - name: Smoke test on Android TV emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -210,9 +187,9 @@ jobs:
           target: android-tv
           arch: x86
           profile: tv_1080p
-          force-avd-creation: false
+          force-avd-creation: true
           disable-animations: true
-          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           # 整体限时，卡住时也能留出时间上传截图和日志
           script: timeout 720 bash scripts/ci-smoke.sh "$(ls new-apk/*.apk | head -1)" old-apk/old.apk "$(ls probe-apk/*.apk | head -1)"
 
@@ -244,6 +221,21 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v5
+
+      # App 的更新弹窗显示这份说明，只取面向用户的部分
+      - name: Extract release notes from CHANGELOG
+        run: |
+          base=$(tr -d '[:space:]' < VERSION)
+          awk -v h="## $base" '
+            /^## / { on = (index($0, h) == 1); skip = 0; next }
+            /^### (测试与验证|未解决问题|开源参考)/ { skip = 1; next }
+            /^### / { skip = 0 }
+            on && !skip
+          ' CHANGELOG.md > release-notes.md
+          [ -s release-notes.md ] || echo "详见 CHANGELOG.md" > release-notes.md
+          cat release-notes.md
+
       - uses: actions/download-artifact@v5
         with:
           path: dist
@@ -258,4 +250,4 @@ jobs:
           prerelease: ${{ needs.build.outputs.prerelease }}
           make_latest: ${{ needs.build.outputs.prerelease == 'false' }}
           files: dist/*.apk
-          generate_release_notes: true
+          body_path: release-notes.md

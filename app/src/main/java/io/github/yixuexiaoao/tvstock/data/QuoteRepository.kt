@@ -35,6 +35,8 @@ class QuoteRepository(
     private val klineFetchedAt = ConcurrentHashMap<String, Long>()
     private val inFlight = ConcurrentHashMap.newKeySet<String>()
     private var lastMissing: Set<String> = emptySet()
+    private val chartRetryAt = ConcurrentHashMap<String, Long>()
+    @Volatile private var lastFullPollMs = 0L
     private var consecutiveFailures = 0
     private val chartErrorLoggedAt = ConcurrentHashMap<String, Long>()
 
@@ -56,6 +58,7 @@ class QuoteRepository(
 
     /** 配置变化后立刻刷新一次。 */
     fun wake() {
+        lastFullPollMs = 0
         wakePending.set(true)
         if (started.get()) schedule(0)
     }
@@ -68,8 +71,10 @@ class QuoteRepository(
 
     private fun loop() {
         wakePending.set(false)
+        // 离开 App 后不再定时唤醒，回到前台时 wake() 会重新开始
+        if (!foreground && !backgroundAllowed) return
         try {
-            if (foreground || backgroundAllowed) pollOnce()
+            pollOnce()
         } catch (t: Throwable) {
             // 只在状态变化时记录，断网期间不刷屏
             if (lastError == null) {
@@ -102,10 +107,15 @@ class QuoteRepository(
 
     private fun pollOnce() {
         val cfg = config()
-        val stocks = cfg.stocks.filter { it.enabled }.map { it.code }
-        val markets = stocks.map(StockCodes::market).toSet() + cfg.settings.market
-        val codes = (stocks + markets.flatMap { indexCodes(it) }).distinct()
         val started = System.currentTimeMillis()
+        val stocks = cfg.stocks.filter { it.enabled }.map { it.code }
+        // 没在看又休市的市场，行情不会变，按非交易时段的间隔刷新一次就够了
+        val fullDue = started - lastFullPollMs >= maxOf(cfg.settings.idleRefreshSec, FULL_POLL_MIN_SEC) * 1000L
+        if (fullDue) lastFullPollMs = started
+        val markets = (stocks.map(StockCodes::market).toSet() + cfg.settings.market).filter {
+            fullDue || it == cfg.settings.market || MarketClock.isTradingTime(started, it)
+        }
+        val codes = (stocks.filter { StockCodes.market(it) in markets } + markets.flatMap { indexCodes(it) }).distinct()
         val list = QuoteApi.quotes(codes, cfg.settings.source)
         list.forEach { quotes[it.code] = it }
         lastSuccessMs = System.currentTimeMillis()
@@ -113,13 +123,11 @@ class QuoteRepository(
         consecutiveFailures = 0
         lastError = null
         AppLog.d(TAG, "请求 ${codes.size} 只，返回 ${list.size} 只，耗时 ${lastSuccessMs - started}ms")
-        if (list.size < codes.size) {
-            val missing = codes.toSet() - list.map { it.code }.toSet()
-            if (missing != lastMissing) AppLog.w(TAG, "这些代码没有返回行情：" + missing.joinToString())
-            lastMissing = missing
-        } else {
-            lastMissing = emptySet()
-        }
+        val returned = list.map { it.code }.toSet()
+        val missing = codes.toSet() - returned
+        val fresh = missing - lastMissing
+        if (fresh.isNotEmpty()) AppLog.w(TAG, "这些代码没有返回行情：" + fresh.joinToString())
+        lastMissing = lastMissing - returned + missing
         onQuotes(list)
         fetchChartsIfDue(cfg)
     }
@@ -154,6 +162,7 @@ class QuoteRepository(
     }
 
     private fun runChart(key: String, block: () -> Unit) {
+        if (System.currentTimeMillis() < (chartRetryAt[key] ?: 0)) return
         if (!inFlight.add(key)) return
         chartPool.execute {
             try {
@@ -162,6 +171,8 @@ class QuoteRepository(
             } catch (e: Exception) {
                 // 图表失败不影响报价，下个周期重试；同一张图每分钟最多记录一次
                 val now = System.currentTimeMillis()
+                // 失败后等一会儿再试，不跟着每轮行情刷新反复请求
+                chartRetryAt[key] = now + CHART_RETRY_MS
                 if (now - (chartErrorLoggedAt[key] ?: 0) >= 60_000) {
                     chartErrorLoggedAt[key] = now
                     AppLog.w(TAG, "图表获取失败 $key", e)
@@ -182,5 +193,7 @@ class QuoteRepository(
         private const val MINUTE_MAX_AGE_TRADING = 20_000L
         private const val MINUTE_MAX_AGE_IDLE = 600_000L
         private const val KLINE_MAX_AGE = 300_000L
+        private const val CHART_RETRY_MS = 30_000L
+        private const val FULL_POLL_MIN_SEC = 30
     }
 }
