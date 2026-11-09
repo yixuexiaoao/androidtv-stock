@@ -9,6 +9,8 @@ val appVersion = System.getenv("STOCK_VERSION_NAME")?.takeIf { it.isNotBlank() }
 val versionParts = baseVersion.split(".").map { it.toInt() }
 // CI 用递增的运行序号，保证每次构建都能覆盖升级
 val ciRunNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
+// 冒烟测试用的低版本构建，见 build.yml
+val forcedVersionCode = System.getenv("STOCK_VERSION_CODE")?.toIntOrNull()
 
 base.archivesName.set("androidtv-stock-$appVersion")
 
@@ -20,7 +22,7 @@ android {
         applicationId = "io.github.yixuexiaoao.tvstock"
         minSdk = 21
         targetSdk = 34
-        versionCode = ciRunNumber?.let { 1000 + it } ?: (versionParts[0] * 10000 + versionParts[1] * 100 + versionParts[2])
+        versionCode = forcedVersionCode ?: ciRunNumber?.let { 1000 + it } ?: (versionParts[0] * 10000 + versionParts[1] * 100 + versionParts[2])
         versionName = appVersion
     }
 

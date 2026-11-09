@@ -37,7 +37,7 @@ class QuoteRepository(
     private val chartErrorLoggedAt = ConcurrentHashMap<String, Long>()
 
     @Volatile var foreground = false
-    /** Web 服务运行时允许后台轮询；服务和界面都不在时停止访问网络。 */
+    /** Web 服务运行时（如正在设置页）低频轮询；离开 App 后服务关闭，不再访问行情接口。 */
     @Volatile var backgroundAllowed = false
     @Volatile var lastSuccessMs = 0L
         private set

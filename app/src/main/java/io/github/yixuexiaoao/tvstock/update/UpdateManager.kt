@@ -26,6 +26,11 @@ object UpdateManager {
     private const val TAG = "Update"
     private const val RELEASES = "https://api.github.com/repos/yixuexiaoao/androidtv-stock/releases"
     private const val AUTO_INTERVAL_MS = 12 * 3600_000L
+    private const val ACCEPT_JSON = "application/vnd.github+json"
+    private const val ACCEPT_APK = "application/octet-stream"
+    /** 所有地址都失败后再完整试一轮，应对 504 这类瞬时错误 */
+    private const val DOWNLOAD_ROUNDS = 2
+    private const val RETRY_DELAY_MS = 3_000L
 
     private val worker = Executors.newSingleThreadExecutor()
     private lateinit var app: Context
@@ -91,10 +96,8 @@ object UpdateManager {
         worker.execute(::doCheck)
     }
 
-    private class HttpStatusException(val code: Int) : IOException("HTTP $code")
-
     private fun readText(url: String): String {
-        val conn = openGet(url)
+        val conn = openGet(url, ACCEPT_JSON)
         try {
             return conn.inputStream.use { it.readBytes() }.toString(Charsets.UTF_8)
         } finally {
@@ -130,7 +133,7 @@ object UpdateManager {
                 set(State.UP_TO_DATE)
             }
         } catch (e: IOException) {
-            fail("检查更新失败，请检查网络", e)
+            fail("检查更新失败：${networkErrorText(e)}", e)
         } catch (e: org.json.JSONException) {
             fail("更新信息解析失败", e)
         } catch (e: RuntimeException) {
@@ -154,42 +157,28 @@ object UpdateManager {
 
     private fun doDownload(target: ReleaseInfo) {
         val file = apkFile(app)
+        AppLog.i(TAG, "开始下载 ${target.apkName}（${target.apkSize} 字节）")
+        var lastError: Throwable? = null
         try {
-            AppLog.i(TAG, "开始下载 ${target.apkName}（${target.apkSize} 字节）")
-            file.parentFile?.mkdirs()
-            val digest = MessageDigest.getInstance("SHA-256")
-            val conn = openGet(target.apkUrl)
-            try {
-                val total = conn.contentLength.toLong().takeIf { it > 0 } ?: target.apkSize
-                conn.inputStream.use { input ->
-                    file.outputStream().use { output ->
-                        val buffer = ByteArray(32 * 1024)
-                        var done = 0L
-                        while (true) {
-                            val n = input.read(buffer)
-                            if (n < 0) break
-                            output.write(buffer, 0, n)
-                            digest.update(buffer, 0, n)
-                            done += n
-                            val percent = if (total > 0) (done * 100 / total).toInt().coerceAtMost(100) else 0
-                            if (percent != progress) {
-                                progress = percent
-                                AppCore.notifyUpdate()
-                            }
-                        }
+            for (round in 1..DOWNLOAD_ROUNDS) {
+                for (url in target.downloadUrls()) {
+                    try {
+                        downloadFrom(url, target, file)
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) file.setReadable(true, false)
+                        AppLog.i(TAG, "下载完成并校验通过：${target.version}，来源 ${hostOf(url)}")
+                        set(State.READY)
+                        return
+                    } catch (e: IOException) {
+                        // 校验失败比网络错误更值得告诉用户，不被后面的网络错误覆盖
+                        if (lastError !is VerifyException) lastError = e
+                        file.delete()
+                        AppLog.w(TAG, "从 ${hostOf(url)} 下载失败（第 $round 轮）：${networkErrorText(e)}", e)
                     }
                 }
-            } finally {
-                conn.disconnect()
+                if (round < DOWNLOAD_ROUNDS) Thread.sleep(RETRY_DELAY_MS)
             }
-            verify(file, target, digest.digest())
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) file.setReadable(true, false)
-            AppLog.i(TAG, "下载完成并校验通过：${target.version}")
-            set(State.READY)
-        } catch (e: IOException) {
-            file.delete()
             installRequested = false
-            fail(e.message?.takeIf { it.startsWith("校验") } ?: "下载失败，请检查网络", e)
+            fail("下载失败：${networkErrorText(lastError)}。可重试或到 Releases 页面手动下载")
         } catch (e: RuntimeException) {
             file.delete()
             installRequested = false
@@ -197,17 +186,51 @@ object UpdateManager {
         }
     }
 
+    private fun hostOf(url: String): String = Uri.parse(url).host.orEmpty()
+
+    private fun downloadFrom(url: String, target: ReleaseInfo, file: File) {
+        file.parentFile?.mkdirs()
+        progress = 0
+        AppCore.notifyUpdate()
+        val digest = MessageDigest.getInstance("SHA-256")
+        val conn = openGet(url, ACCEPT_APK)
+        try {
+            val total = conn.contentLength.toLong().takeIf { it > 0 } ?: target.apkSize
+            conn.inputStream.use { input ->
+                file.outputStream().use { output ->
+                    val buffer = ByteArray(32 * 1024)
+                    var done = 0L
+                    while (true) {
+                        val n = input.read(buffer)
+                        if (n < 0) break
+                        output.write(buffer, 0, n)
+                        digest.update(buffer, 0, n)
+                        done += n
+                        val percent = if (total > 0) (done * 100 / total).toInt().coerceAtMost(100) else 0
+                        if (percent != progress) {
+                            progress = percent
+                            AppCore.notifyUpdate()
+                        }
+                    }
+                }
+            }
+        } finally {
+            conn.disconnect()
+        }
+        verify(file, target, digest.digest())
+    }
+
     private fun verify(file: File, target: ReleaseInfo, sha256: ByteArray) {
         if (target.apkSize > 0 && file.length() != target.apkSize) {
-            throw IOException("校验失败：文件大小不一致")
+            throw VerifyException("校验失败：文件大小不一致")
         }
         val hex = sha256.joinToString("") { "%02x".format(it) }
         if (target.sha256.isNotEmpty() && target.sha256 != hex) {
-            throw IOException("校验失败：SHA-256 不一致")
+            throw VerifyException("校验失败：SHA-256 不一致")
         }
         val info = app.packageManager.getPackageArchiveInfo(file.path, 0)
         if (info?.packageName != app.packageName) {
-            throw IOException("校验失败：不是本应用的安装包")
+            throw VerifyException("校验失败：不是本应用的安装包")
         }
     }
 
@@ -256,12 +279,12 @@ object UpdateManager {
 
     private fun toast(context: Context, text: String) = Toast.makeText(context, text, Toast.LENGTH_LONG).show()
 
-    private fun openGet(url: String): HttpURLConnection {
+    private fun openGet(url: String, accept: String): HttpURLConnection {
         val conn = URL(url).openConnection() as HttpURLConnection
         conn.connectTimeout = 10_000
         conn.readTimeout = 30_000
         conn.setRequestProperty("User-Agent", "androidtv-stock/${BuildConfig.VERSION_NAME}")
-        conn.setRequestProperty("Accept", "application/json, application/octet-stream")
+        conn.setRequestProperty("Accept", accept)
         if (conn.responseCode !in 200..299) {
             val code = conn.responseCode
             conn.disconnect()

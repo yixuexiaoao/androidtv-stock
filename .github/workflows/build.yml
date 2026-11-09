@@ -120,6 +120,22 @@ jobs:
           path: app/build/outputs/apk/release/*-universal-release.apk
           if-no-files-found: error
 
+      # 当前代码的低版本构建：冒烟测试用它检查更新并下载，验证的是这次提交的下载逻辑
+      - name: Build update probe
+        env:
+          STOCK_VERSION_NAME: 0.0.1-probe.1
+          STOCK_VERSION_CODE: "1"
+          STOCK_KEYSTORE_PASSWORD: ${{ secrets.STOCK_KEYSTORE_PASSWORD }}
+          STOCK_KEY_ALIAS: ${{ secrets.STOCK_KEY_ALIAS }}
+          STOCK_KEY_PASSWORD: ${{ secrets.STOCK_KEY_PASSWORD }}
+        run: ./gradlew --no-daemon --stacktrace assembleRelease
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: update-probe
+          path: app/build/outputs/apk/release/androidtv-stock-0.0.1-probe.1-universal-release.apk
+          if-no-files-found: error
+
       - uses: actions/upload-artifact@v5
         if: always()
         with:
@@ -141,6 +157,11 @@ jobs:
         with:
           name: apk-universal
           path: new-apk
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: update-probe
+          path: probe-apk
 
       - name: Download previous release for upgrade test
         env:
@@ -167,7 +188,7 @@ jobs:
           force-avd-creation: true
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
-          script: bash scripts/ci-smoke.sh "$(ls new-apk/*.apk | head -1)" old-apk/old.apk
+          script: bash scripts/ci-smoke.sh "$(ls new-apk/*.apk | head -1)" old-apk/old.apk "$(ls probe-apk/*.apk | head -1)"
 
       - uses: actions/upload-artifact@v5
         if: always()

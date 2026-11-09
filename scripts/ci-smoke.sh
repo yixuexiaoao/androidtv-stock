@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # 在 Android TV 模拟器上做冒烟测试：升级路径、Web API、遥控器操作、各界面截图、崩溃检查。
-# 用法：ci-smoke.sh <新版本 APK> [旧版本 APK]
+# 用法：ci-smoke.sh <新版本 APK> [旧版本 APK] [当前代码的低版本构建]
 set -u
 
 NEW_APK="$1"
 OLD_APK="${2:-}"
+PROBE_APK="${3:-}"
 PKG=io.github.yixuexiaoao.tvstock
 OUT=smoke
 FAILED=0
@@ -39,16 +40,56 @@ num_eq() { python3 -c "import sys; sys.exit(0 if abs(float(sys.argv[1])-float(sy
 # json <表达式>，从标准输入读 JSON，d 是解析结果
 json() { python3 -c "import json,sys; d=json.load(sys.stdin); print($1)"; }
 
+web_up() { curl -fsS -m 5 "http://127.0.0.1:$PORT/api/meta" > /dev/null 2>&1; }
+
 wait_update_state() {
   local want="$1" state=""
   for _ in $(seq 1 30); do
-    state=$(get /api/state | json "d['status']['update']['state']")
-    case " $want " in *" $state "*) echo "$state"; return 0 ;; esac
+    state=$(get /api/state 2> /dev/null | json "d['status']['update']['state']" 2> /dev/null)
+    case " $want " in *" $state "*) [ -n "$state" ] && { echo "$state"; return 0; } ;; esac
+    # 调起安装器或授权页后 App 退到后台，Web 服务随之关闭；回到 App 再查
+    [ -z "$state" ] && launch 3
     sleep 3
   done
   echo "$state"
   return 1
 }
+
+# ---------- 下载链路：用当前代码的低版本构建，真实下载一个已发布版本 ----------
+if [ -n "$PROBE_APK" ] && [ -f "$PROBE_APK" ]; then
+  adb install -r "$PROBE_APK" || fail "低版本构建安装失败"
+  launch
+  if find_port; then
+    post /api/settings '{"updateChannel":"STABLE"}' > /dev/null
+    post /api/update/check '{}' > /dev/null
+    state=$(wait_update_state "AVAILABLE UP_TO_DATE ERROR")
+    echo "低版本构建检查更新结果：$state"
+    if [ "$state" = "AVAILABLE" ]; then
+      post /api/update/install '{}' > /dev/null
+      state=$(wait_update_state "READY ERROR")
+      [ "$state" = "READY" ] && pass "当前代码下载并校验通过" || fail "当前代码下载失败：$state"
+      # READY 后 App 会调起安装器并退到后台，先回到 App 才能读日志
+      sleep 3
+      shot 00-update-probe
+      launch 4
+      get '/api/logs?level=D&limit=200' | json "'\n'.join(e['msg'] for e in reversed(d) if e['tag']=='Update')" > "$OUT/update-log.txt" || true
+      cat "$OUT/update-log.txt"
+      # API 被限流时回退到 github.com 是预期行为，只提示不判失败
+      if grep -q '来源 api.github.com' "$OUT/update-log.txt"; then
+        pass "下载走 API 资源地址"
+      else
+        echo "::warning::下载没有走 API 资源地址（可能是接口限流后回退）"
+      fi
+    elif [ "$state" = "ERROR" ]; then
+      echo "::warning::检查更新出错（可能是接口限流）"
+    else
+      fail "低版本构建没有发现新版本：$state"
+    fi
+  else
+    fail "低版本构建 Web 服务不可访问"
+  fi
+  adb shell am force-stop "$PKG"
+fi
 
 # ---------- 升级路径：先装上一个已发布版本，走一遍真实的检查更新和下载 ----------
 if [ -n "$OLD_APK" ] && [ -f "$OLD_APK" ]; then
@@ -182,12 +223,30 @@ post /api/settings '{"sortMode":"MANUAL"}' > /dev/null
 # ---------- 稳定性 ----------
 sleep 5
 adb shell pidof "$PKG" > /dev/null && pass "进程存活" || fail "进程已退出"
-CRASH=$(adb logcat -d -b crash | grep -c "$PKG" || true)
-[ "$CRASH" = "0" ] && pass "没有崩溃" || { fail "检测到崩溃"; adb logcat -d -b crash | tail -n 60; }
 LOG_ERRORS=$(get '/api/logs?level=E&limit=20')
 COUNT=$(echo "$LOG_ERRORS" | json "len(d)")
 [ "$COUNT" = "0" ] && pass "日志没有错误" || { fail "日志有 $COUNT 条错误：$(echo "$LOG_ERRORS" | head -c 1500)"; }
+
+# ---------- Web 服务随界面启停（放在最后，退出后接口就不可用了）----------
+key KEYCODE_MENU
+sleep 2
+web_up && pass "进入设置页时 Web 服务继续运行" || fail "进入设置页后 Web 服务停止"
+key KEYCODE_BACK
+sleep 1
+key KEYCODE_HOME
+sleep 3
+web_up && fail "按主页键后 Web 服务仍在运行" || pass "按主页键后 Web 服务关闭"
+launch 4
+web_up && pass "回到 App 后 Web 服务恢复（端口 $PORT）" || fail "回到 App 后 Web 服务未在端口 $PORT 恢复"
 get '/api/logs?level=D&limit=2000' | json "'\n'.join(e['level']+'/'+e['tag']+': '+e['msg'] for e in reversed(d))" > "$OUT/app-log.txt" || true
+# 同一条命令发两次，保证落在“再按一次退出”的 2 秒窗口内
+adb shell input keyevent KEYCODE_BACK KEYCODE_BACK
+sleep 3
+web_up && fail "退出后 Web 服务仍在运行" || pass "退出后 Web 服务关闭"
+SERVICES=$(adb shell dumpsys activity services "$PKG" | grep -c ServiceRecord || true)
+[ "$SERVICES" = "0" ] && pass "没有常驻服务" || fail "仍有 $SERVICES 个服务在运行"
+CRASH=$(adb logcat -d -b crash | grep -c "$PKG" || true)
+[ "$CRASH" = "0" ] && pass "没有崩溃" || { fail "检测到崩溃"; adb logcat -d -b crash | tail -n 60; }
 adb logcat -d -t 400 > "$OUT/logcat.txt" 2>&1 || true
 
 [ "$FAILED" = "0" ] && echo "冒烟测试全部通过" || echo "冒烟测试有失败项"

@@ -2,6 +2,10 @@ package io.github.yixuexiaoao.tvstock.update
 
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.IOException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
+import javax.net.ssl.SSLException
 
 data class ReleaseInfo(
     val version: String,
@@ -13,7 +17,33 @@ data class ReleaseInfo(
     val apkSize: Long,
     /** 小写十六进制；GitHub 未提供时为空 */
     val sha256: String,
-)
+    /** GitHub API 的资源地址，需要 Accept: application/octet-stream */
+    val apkApiUrl: String = "",
+) {
+    /**
+     * 下载地址按优先级排列。github.com 的下载入口在部分网络下会超时或返回 504，
+     * API 地址能绕过它直接跳转到文件服务器，所以排在前面。
+     */
+    fun downloadUrls(): List<String> = listOf(apkApiUrl, apkUrl).filter { it.isNotEmpty() }.distinct()
+}
+
+class HttpStatusException(val code: Int) : IOException("HTTP $code")
+
+/** 校验失败：message 就是给用户看的说明。 */
+class VerifyException(message: String) : IOException(message)
+
+/** 把网络异常转换成用户能看懂的原因。 */
+fun networkErrorText(error: Throwable?): String = when (error) {
+    is VerifyException -> error.message.orEmpty()
+    is HttpStatusException -> when (error.code) {
+        403, 429 -> "GitHub 限制了访问频率，请稍后再试"
+        else -> "服务器返回 HTTP ${error.code}"
+    }
+    is UnknownHostException -> "无法解析 GitHub 域名，请检查网络或 DNS"
+    is SocketTimeoutException -> "连接超时，GitHub 可能无法访问"
+    is SSLException -> "安全连接失败，请检查电视的日期和时间"
+    else -> "网络连接失败"
+}
 
 object Versions {
     private val TRAILING_NUMBER = Regex("(\\d+)$")
@@ -69,6 +99,7 @@ object ReleaseParser {
             apkUrl = asset.optString("browser_download_url", ""),
             apkSize = asset.optLong("size", 0),
             sha256 = if (digest.startsWith("sha256:")) digest.removePrefix("sha256:").lowercase() else "",
+            apkApiUrl = asset.optString("url", ""),
         )
     }
 

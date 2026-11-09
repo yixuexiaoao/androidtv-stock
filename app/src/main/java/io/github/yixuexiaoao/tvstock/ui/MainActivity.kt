@@ -28,7 +28,6 @@ import io.github.yixuexiaoao.tvstock.model.Layouts
 import io.github.yixuexiaoao.tvstock.model.StockConfig
 import io.github.yixuexiaoao.tvstock.model.StockSort
 import io.github.yixuexiaoao.tvstock.update.UpdateManager
-import io.github.yixuexiaoao.tvstock.web.WebService
 import org.json.JSONObject
 import kotlin.math.max
 
@@ -117,7 +116,6 @@ class MainActivity : Activity(), AppCore.Listener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         buildViews()
-        WebService.start(this)
         AppCore.repo.start()
     }
 
@@ -754,7 +752,6 @@ class MainActivity : Activity(), AppCore.Listener {
         }
         val now = System.currentTimeMillis()
         if (now - lastBackMs < 2000) {
-            if (!config.settings.keepServiceOnExit) WebService.stop(this)
             finish()
         } else {
             lastBackMs = now

@@ -299,7 +299,6 @@ const FORMS = () => ({
       ['webPort', 'number', 'Web 端口（端口被占用时自动 +1，修改后请用新端口访问）', {min:1024,max:65535}],
       ['webPin', 'text', '访问密码（留空为不设密码）'],
       ['autostart', 'check', '开机自启（部分系统可能限制）'],
-      ['keepServiceOnExit', 'check', '退出界面后保持 Web 服务运行'],
     ]],
     ['更新与调试', [
       ['updateChannel', 'select', '更新范围', [{value:'AUTO',label:'跟随当前版本'},{value:'STABLE',label:'仅正式版'},{value:'PRE',label:'包含预发布版'}]],

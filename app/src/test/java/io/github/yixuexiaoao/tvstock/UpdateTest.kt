@@ -1,16 +1,24 @@
 package io.github.yixuexiaoao.tvstock
 
+import io.github.yixuexiaoao.tvstock.update.HttpStatusException
+import io.github.yixuexiaoao.tvstock.update.ReleaseInfo
 import io.github.yixuexiaoao.tvstock.update.ReleaseParser
+import io.github.yixuexiaoao.tvstock.update.VerifyException
 import io.github.yixuexiaoao.tvstock.update.Versions
+import io.github.yixuexiaoao.tvstock.update.networkErrorText
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
+import javax.net.ssl.SSLHandshakeException
 
 class UpdateTest {
     private fun assets(version: String) = listOf("armeabi-v7a", "arm64-v8a", "universal").joinToString(",") {
-        """{"name":"androidtv-stock-$version-$it-release.apk","browser_download_url":"https://x/$version/$it","size":100,"digest":"sha256:ABC"}"""
+        """{"name":"androidtv-stock-$version-$it-release.apk","url":"https://api/$version/$it","browser_download_url":"https://x/$version/$it","size":100,"digest":"sha256:ABC"}"""
     }
 
     private fun release(version: String, pre: Boolean, draft: Boolean = false, assets: String = assets(version)) =
@@ -53,6 +61,31 @@ class UpdateTest {
     @Test fun skipsDraftsAndReleasesWithoutApk() {
         val json = "[${release("9.0.0", false, draft = true)},${release("8.0.0", false, assets = "")},${release("1.0.0", false)}]"
         assertEquals(listOf("1.0.0"), ReleaseParser.parse(json, listOf("arm64-v8a")).map { it.version })
+    }
+
+    @Test fun apiDownloadUrlComesFirst() {
+        val r = ReleaseParser.parse("[${release("1.0.1", false)}]", listOf("arm64-v8a")).single()
+        assertEquals(listOf("https://api/1.0.1/arm64-v8a", "https://x/1.0.1/arm64-v8a"), r.downloadUrls())
+    }
+
+    @Test fun downloadUrlsSkipEmptyAndDuplicate() {
+        fun info(api: String, browser: String) = ReleaseInfo("1", false, "", "", "a", browser, 1, "", api)
+        assertEquals(listOf("b"), info("", "b").downloadUrls())
+        assertEquals(listOf("a"), info("a", "").downloadUrls())
+        assertEquals(listOf("a"), info("a", "a").downloadUrls())
+        assertTrue(info("", "").downloadUrls().isEmpty())
+    }
+
+    @Test fun networkErrorsAreExplained() {
+        assertEquals("服务器返回 HTTP 504", networkErrorText(HttpStatusException(504)))
+        assertTrue(networkErrorText(HttpStatusException(403)).contains("频率"))
+        assertTrue(networkErrorText(HttpStatusException(429)).contains("频率"))
+        assertTrue(networkErrorText(UnknownHostException("x")).contains("DNS"))
+        assertTrue(networkErrorText(SocketTimeoutException()).contains("超时"))
+        assertTrue(networkErrorText(SSLHandshakeException("x")).contains("日期"))
+        assertEquals("校验失败：x", networkErrorText(VerifyException("校验失败：x")))
+        assertEquals("网络连接失败", networkErrorText(IOException("x")))
+        assertEquals("网络连接失败", networkErrorText(null))
     }
 
     @Test fun channelFiltering() {

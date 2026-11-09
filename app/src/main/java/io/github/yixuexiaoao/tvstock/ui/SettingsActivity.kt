@@ -198,7 +198,6 @@ class SettingsActivity : Activity(), AppCore.Listener {
                 Row("最近提醒", { "查看" }, onOk = { StockDialogs.recentAlerts(this) }),
                 Row("Web 后台", { AppCore.webUrl.ifEmpty { "未启动" } }, onOk = { StockDialogs.webQr(this) }),
                 toggle("开机自启", { settings.autostart }, "autostart"),
-                toggle("退出后保持 Web 服务", { settings.keepServiceOnExit }, "keepServiceOnExit"),
                 Row("检查更新", { UpdateManager.statusText() }, onOk = ::updateAction),
                 choice("更新范围", listOf("AUTO", "STABLE", "PRE"), { settings.updateChannel }, { mapOf("AUTO" to "跟随当前版本", "STABLE" to "仅正式版", "PRE" to "包含预发布版")[it] ?: it }, "updateChannel"),
                 toggle("自动检查更新", { settings.updateAutoCheck }, "updateAutoCheck"),

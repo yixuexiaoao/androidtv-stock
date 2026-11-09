@@ -219,7 +219,6 @@ data class AppSettings(
     val alertJumpPage: Boolean = true,
     val source: String = "AUTO",
     val autostart: Boolean = false,
-    val keepServiceOnExit: Boolean = true,
     val webPort: Int = DEFAULT_WEB_PORT,
     val webPin: String = "",
     val updateChannel: String = "AUTO",
@@ -277,7 +276,6 @@ data class AppSettings(
         put("alertJumpPage", alertJumpPage)
         put("source", source)
         put("autostart", autostart)
-        put("keepServiceOnExit", keepServiceOnExit)
         put("webPort", webPort)
         put("webPin", webPin)
         put("updateChannel", updateChannel)
@@ -342,7 +340,6 @@ data class AppSettings(
             alertJumpPage = bool("alertJumpPage", alertJumpPage),
             source = choice("source", source, listOf("AUTO", "TENCENT", "SINA")),
             autostart = bool("autostart", autostart),
-            keepServiceOnExit = bool("keepServiceOnExit", keepServiceOnExit),
             webPort = int("webPort", webPort, 1024, 65535),
             webPin = if (json.has("webPin")) json.optString("webPin", "").trim().take(32) else webPin,
             updateChannel = choice("updateChannel", updateChannel, listOf("AUTO", "STABLE", "PRE")),
