@@ -94,8 +94,14 @@ class WebApiTest {
         assertEquals("sh600519", fake.cfg.stocks.single().code)
     }
 
+    @Test fun addUsStock() {
+        val r = post("/api/stocks", """{"code":"aapl"}""")
+        assertEquals(200, r.status)
+        assertEquals("usAAPL", r.obj().getString("code"))
+    }
+
     @Test fun invalidStockRejected() {
-        assertEquals(400, post("/api/stocks", """{"code":"abc"}""").status)
+        assertEquals(400, post("/api/stocks", """{"code":"a b"}""").status)
         assertEquals(400, post("/api/stocks", "not json").status)
         assertTrue(fake.cfg.stocks.isEmpty())
     }

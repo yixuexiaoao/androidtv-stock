@@ -23,17 +23,33 @@ private fun JSONArray.toStringList(): List<String> =
 
 private fun Collection<String>.toJsonArray(): JSONArray = JSONArray().also { arr -> forEach { arr.put(it) } }
 
+object Markets {
+    const val CN = "CN"
+    const val US = "US"
+    val ALL = listOf(CN, US)
+    fun label(market: String) = if (market == US) "美股" else "A股"
+    fun other(market: String) = if (market == US) CN else US
+}
+
 object StockCodes {
     private val PREFIXED = Regex("^(sh|sz|bj)(\\d{6})$")
     private val SUFFIXED = Regex("^(\\d{6})\\.(sh|sz|bj)$")
     private val PLAIN = Regex("^\\d{6}$")
+    private val US_CANONICAL = Regex("^(us[A-Z.]|US\\.)")
+    private val US_EXCHANGE = Regex("\\.(OQ|N|AM|PS)$")
+    private val US_TICKER = Regex("^[A-Z][A-Z0-9]{0,5}(\\.[A-Z]{1,2})?$")
+    private val US_INDEX = Regex("^\\.[A-Z]{2,8}$")
 
-    /** 把 600519 / SH600519 / 600519.SH 统一为 sh600519；非法输入返回 null。 */
+    /**
+     * A 股统一为 sh600519，美股统一为 usAAPL，美股指数统一为 us.DJI；非法输入返回 null。
+     * 支持 600519 / SH600519 / 600519.SH / AAPL / usAAPL / AAPL.OQ / BRK.B / .DJI。
+     */
     fun normalize(input: String?): String? {
-        val text = input?.trim()?.lowercase() ?: return null
+        val raw = input?.trim() ?: return null
+        val text = raw.lowercase()
         PREFIXED.matchEntire(text)?.let { return text }
         SUFFIXED.matchEntire(text)?.let { return it.groupValues[2] + it.groupValues[1] }
-        if (!PLAIN.matches(text)) return null
+        if (!PLAIN.matches(text)) return normalizeUs(raw)
         val market = when {
             text.startsWith("92") -> "bj"
             text[0] == '6' || text[0] == '5' || text[0] == '9' -> "sh"
@@ -44,7 +60,20 @@ object StockCodes {
         return market + text
     }
 
-    fun shortCode(code: String): String = code.removePrefix("sh").removePrefix("sz").removePrefix("bj")
+    private fun normalizeUs(raw: String): String? {
+        // 只有 usAAPL、us.DJI 这种写法才去前缀：USB、usb 是美国合众银行的代码
+        val body = if (US_CANONICAL.containsMatchIn(raw)) raw.substring(2) else raw
+        val ticker = body.uppercase().replace(US_EXCHANGE, "")
+        return if (US_TICKER.matches(ticker) || US_INDEX.matches(ticker)) "us$ticker" else null
+    }
+
+    fun isUs(code: String): Boolean = code.startsWith("us")
+
+    fun market(code: String): String = if (isUs(code)) Markets.US else Markets.CN
+
+    fun shortCode(code: String): String =
+        if (isUs(code)) code.removePrefix("us").removePrefix(".")
+        else code.removePrefix("sh").removePrefix("sz").removePrefix("bj")
 }
 
 /**
@@ -78,6 +107,9 @@ data class StockConfig(
     val alertModes: List<String>? = null,
     val enabled: Boolean = true,
 ) {
+    val hasAlertRule: Boolean
+        get() = listOf(targetHigh, targetLow, pctUp, pctDown, profitPct, lossPct).any { it != null }
+
     fun toJson(): JSONObject = JSONObject().apply {
         put("code", code)
         put("alias", alias)
@@ -166,6 +198,8 @@ object AlertModes {
 
 /** 全部全局设置。新增字段只需写入默认值和 fromJson/toJson。 */
 data class AppSettings(
+    /** 首页显示哪个市场的自选股 */
+    val market: String = Markets.CN,
     val layoutId: String = "4",
     val customLayout: GridLayoutDef? = null,
     val displayMode: String = DisplayModes.MIXED,
@@ -228,6 +262,7 @@ data class AppSettings(
     fun effectiveLayout(): GridLayoutDef = Layouts.resolve(layoutId, customLayout)
 
     fun toJson(): JSONObject = JSONObject().apply {
+        put("market", market)
         put("layoutId", layoutId)
         customLayout?.let { put("customLayout", it.toJson()) }
         put("displayMode", displayMode)
@@ -292,6 +327,7 @@ data class AppSettings(
             json.optString(key, cur).takeIf { it in allowed } ?: cur
 
         return copy(
+            market = choice("market", market, Markets.ALL),
             layoutId = json.optString("layoutId", layoutId).takeIf { it == Layouts.CUSTOM_ID || Layouts.byId(it) != null } ?: layoutId,
             customLayout = json.optJSONObject("customLayout")?.let { GridLayoutDef.fromJson(it) } ?: customLayout,
             displayMode = choice("displayMode", displayMode, DisplayModes.ALL),
@@ -416,6 +452,14 @@ data class AppConfig(
             StockConfig("sz300750"),
         )
 
+        /** 第一次切到美股时添加，可在后台删除。 */
+        val DEFAULT_US_STOCKS = listOf(
+            StockConfig("us.DJI"),
+            StockConfig("us.IXIC"),
+            StockConfig("usAAPL"),
+            StockConfig("usNVDA"),
+        )
+
         fun fromJson(json: JSONObject): AppConfig {
             var settings = json.optJSONObject("settings")?.let { AppSettings().merged(it) } ?: AppSettings()
             // 旧版默认端口迁移到新默认端口；用户在新版里主动改回 8080 不受影响
@@ -432,7 +476,7 @@ data class AppConfig(
     }
 }
 
-/** 一档盘口：价格 + 数量（手）。 */
+/** 一档盘口：价格 + 数量（A 股为手，美股为股）。 */
 data class Level(val price: Double, val volume: Double)
 
 data class Quote(
@@ -446,9 +490,9 @@ data class Quote(
     val low: Double,
     val change: Double,
     val changePct: Double,
-    /** 成交量（手） */
+    /** 成交量：A 股为手，美股为股 */
     val volume: Double,
-    /** 成交额（万元） */
+    /** 成交额（万）：A 股为人民币，美股为美元 */
     val amountWan: Double,
     val turnover: Double? = null,
     val pe: Double? = null,
@@ -461,9 +505,11 @@ data class Quote(
     val limitDown: Double? = null,
     val bids: List<Level> = emptyList(),
     val asks: List<Level> = emptyList(),
-    /** yyyyMMddHHmmss，北京时间 */
+    /** yyyyMMddHHmmss，所属市场当地时间（A 股北京时间，美股美东时间） */
     val time: String = "",
     val decimals: Int = 2,
+    /** 美股带交易所后缀的代码，如 AAPL.OQ，取 K 线时需要 */
+    val exchange: String = "",
 ) {
     val hasTrade: Boolean get() = price > 0
     /** 用于显示：未成交时回退到昨收。 */

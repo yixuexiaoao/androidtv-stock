@@ -3,6 +3,8 @@ package io.github.yixuexiaoao.tvstock.ui
 import android.graphics.Color
 import io.github.yixuexiaoao.tvstock.data.MarketClock
 import io.github.yixuexiaoao.tvstock.model.AppSettings
+import io.github.yixuexiaoao.tvstock.model.Quote
+import io.github.yixuexiaoao.tvstock.model.StockCodes
 import io.github.yixuexiaoao.tvstock.model.Themes
 import kotlin.math.abs
 
@@ -77,11 +79,27 @@ object Format {
         else -> "%.0f手".format(hands)
     }
 
-    fun money(value: Double): String = when {
-        abs(value) >= 100_000_000 -> "%.2f亿".format(value / 100_000_000)
-        abs(value) >= 100_000 -> "%.2f万".format(value / 10_000)
-        else -> "%.2f".format(value)
+    fun shares(shares: Double): String = when {
+        shares >= 100_000_000 -> "%.2f亿股".format(shares / 100_000_000)
+        shares >= 10_000 -> "%.2f万股".format(shares / 10_000)
+        else -> "%.0f股".format(shares)
     }
 
-    fun signedMoney(value: Double): String = (if (value > 0) "+" else "") + money(value)
+    /** 成交量：A 股为手，美股为股。 */
+    fun volume(q: Quote): String = if (StockCodes.isUs(q.code)) shares(q.volume) else hands(q.volume)
+
+    fun amount(q: Quote): String = (if (StockCodes.isUs(q.code)) "$" else "") + fromWan(q.amountWan)
+
+    /** usd 为 true 时带美元符号；A 股保持不带货币符号。 */
+    fun money(value: Double, usd: Boolean = false): String {
+        val a = abs(value)
+        val text = when {
+            a >= 100_000_000 -> "%.2f亿".format(a / 100_000_000)
+            a >= 100_000 -> "%.2f万".format(a / 10_000)
+            else -> "%.2f".format(a)
+        }
+        return (if (value < 0) "-" else "") + (if (usd) "$" else "") + text
+    }
+
+    fun signedMoney(value: Double, usd: Boolean = false): String = (if (value > 0) "+" else "") + money(value, usd)
 }

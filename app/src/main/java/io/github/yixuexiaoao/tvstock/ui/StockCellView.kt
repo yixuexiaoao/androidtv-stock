@@ -183,7 +183,9 @@ class StockCellView(context: Context) : View(context) {
             q.limitDown != null && q.limitDown > 0 && q.price <= q.limitDown -> " [跌停]"
             else -> ""
         }
-        return s.alias.ifBlank { q.name } + badge
+        // 美股名称可能很陌生，带上大家更熟悉的代码
+        val ticker = if (StockCodes.isUs(s.code)) " " + StockCodes.shortCode(s.code) else ""
+        return s.alias.ifBlank { q.name } + ticker + badge
     }
 
     /** 目标价 + 距离现价的百分比。 */
@@ -196,6 +198,7 @@ class StockCellView(context: Context) : View(context) {
         if (!settings.showHoldings) return emptyList()
         val out = mutableListOf<Pair<String, Int>>()
         val holding = Holding.of(s, q)
+        val usd = StockCodes.isUs(s.code)
         if (holding != null) {
             if (settings.privacy) {
                 out += "持仓 ****   盈亏 ****" to palette.subText
@@ -203,14 +206,14 @@ class StockCellView(context: Context) : View(context) {
                 val cost = holding.cost?.let { "  成本 " + Format.price(it, q.decimals) }.orEmpty()
                 out += "持仓 ${holding.shares}股$cost" to palette.subText
                 if (holding.profit != null) {
-                    out += "盈亏 ${Format.signedMoney(holding.profit)} (${Format.percent(holding.profitPct ?: 0.0)})  今日 ${Format.signedMoney(holding.dayProfit)}" to palette.forChange(holding.profit)
+                    out += "盈亏 ${Format.signedMoney(holding.profit, usd)} (${Format.percent(holding.profitPct ?: 0.0)})  今日 ${Format.signedMoney(holding.dayProfit, usd)}" to palette.forChange(holding.profit)
                 } else {
-                    out += "市值 ${Format.money(holding.marketValue)}  今日 ${Format.signedMoney(holding.dayProfit)}" to palette.forChange(holding.dayProfit)
+                    out += "市值 ${Format.money(holding.marketValue, usd)}  今日 ${Format.signedMoney(holding.dayProfit, usd)}" to palette.forChange(holding.dayProfit)
                 }
             }
         }
         if (holding == null && s.realizedProfit != 0.0 && !settings.privacy) {
-            out += "已实现 ${Format.signedMoney(s.realizedProfit)}" to palette.forChange(s.realizedProfit)
+            out += "已实现 ${Format.signedMoney(s.realizedProfit, usd)}" to palette.forChange(s.realizedProfit)
         }
         val targets = buildList {
             s.targetHigh?.let { add(targetText("目标", it, q)) }
@@ -226,14 +229,14 @@ class StockCellView(context: Context) : View(context) {
         add("昨收" to Format.price(q.prevClose, d))
         add("最高" to Format.price(q.high, d))
         add("最低" to Format.price(q.low, d))
-        add("成交量" to Format.hands(q.volume))
-        add("成交额" to Format.fromWan(q.amountWan))
+        add("成交量" to Format.volume(q))
+        add("成交额" to Format.amount(q))
         q.turnover?.let { add("换手" to "%.2f%%".format(it)) }
         q.amplitude?.let { add("振幅" to "%.2f%%".format(it)) }
         q.volumeRatio?.let { add("量比" to "%.2f".format(it)) }
         q.pe?.takeIf { it != 0.0 }?.let { add("市盈" to "%.2f".format(it)) }
         q.pb?.takeIf { it != 0.0 }?.let { add("市净" to "%.2f".format(it)) }
-        q.totalCapYi?.takeIf { it > 0 }?.let { add("总市值" to "%.0f亿".format(it)) }
+        q.totalCapYi?.takeIf { it > 0 }?.let { add("总市值" to (if (StockCodes.isUs(q.code)) "$" else "") + "%.0f亿".format(it)) }
     }
 
     /** 纯文字模式。 */
@@ -321,7 +324,7 @@ class StockCellView(context: Context) : View(context) {
             if (klineList.isEmpty()) drawChartLoading(c, area, font)
             else chart.drawKline(c, area, klineList, q.decimals, palette, font, marks(s, q))
         } else {
-            chart.drawMinute(c, area, minutePoints, q.prevClose, q.decimals, palette, font, marks(s, q))
+            chart.drawMinute(c, area, minutePoints, q.prevClose, q.decimals, palette, font, marks(s, q), StockCodes.isUs(s.code))
         }
     }
 
@@ -356,7 +359,7 @@ class StockCellView(context: Context) : View(context) {
         val rows = mutableListOf<Pair<String, Int>>()
         val roomy = h > base * 8.5f
         if (mode == DisplayModes.MIXED && settings.showStats && roomy) {
-            rows += "高 ${Format.price(q.high, q.decimals)}  低 ${Format.price(q.low, q.decimals)}  量 ${Format.hands(q.volume)}  额 ${Format.fromWan(q.amountWan)}" to palette.subText
+            rows += "高 ${Format.price(q.high, q.decimals)}  低 ${Format.price(q.low, q.decimals)}  量 ${Format.volume(q)}  额 ${Format.amount(q)}" to palette.subText
         }
         if (roomy) rows += holdingLines(s, q)
 

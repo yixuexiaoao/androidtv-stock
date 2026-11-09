@@ -237,16 +237,10 @@ class WebApi(private val backend: WebBackend) {
                     })
                 }
             })
-            PortfolioSummary.of(cfg.stocks, quotes)?.let { p ->
-                put("portfolio", JSONObject().apply {
-                    put("count", p.count)
-                    put("marketValue", p.marketValue)
-                    put("profit", p.profit)
-                    put("dayProfit", p.dayProfit)
-                    putOpt("profitPct", p.profitPct)
-                    put("realized", p.realized)
-                })
-            }
+            // 人民币和美元不能相加，分市场汇总
+            val (usStocks, cnStocks) = cfg.stocks.partition { StockCodes.isUs(it.code) }
+            PortfolioSummary.of(cnStocks, quotes)?.let { put("portfolio", portfolioJson(it)) }
+            PortfolioSummary.of(usStocks, quotes)?.let { put("portfolioUs", portfolioJson(it)) }
             put("alerts", JSONArray().also { arr ->
                 backend.alertHistory().take(50).forEach { e ->
                     arr.put(JSONObject().apply {
@@ -261,6 +255,15 @@ class WebApi(private val backend: WebBackend) {
             })
             put("status", backend.status())
         }
+    }
+
+    private fun portfolioJson(p: PortfolioSummary) = JSONObject().apply {
+        put("count", p.count)
+        put("marketValue", p.marketValue)
+        put("profit", p.profit)
+        put("dayProfit", p.dayProfit)
+        putOpt("profitPct", p.profitPct)
+        put("realized", p.realized)
     }
 
     private fun meta() = JSONObject().apply {

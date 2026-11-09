@@ -7,8 +7,10 @@ import android.graphics.Typeface
 import android.view.View
 import io.github.yixuexiaoao.tvstock.data.MarketClock
 import io.github.yixuexiaoao.tvstock.model.AppConfig
+import io.github.yixuexiaoao.tvstock.model.Markets
 import io.github.yixuexiaoao.tvstock.model.PortfolioSummary
 import io.github.yixuexiaoao.tvstock.model.Quote
+import io.github.yixuexiaoao.tvstock.model.StockCodes
 
 /** 顶部状态栏：大盘指数、持仓汇总、Web 地址、页码、时钟、网络状态。 */
 class HeaderView(context: Context) : View(context) {
@@ -19,6 +21,7 @@ class HeaderView(context: Context) : View(context) {
     var error: String? = null
     var updateText = ""
     var marketText = ""
+    var marketActive = false
     var delayText = ""
     var muteText = ""
     var palette = Palette.of(config.settings)
@@ -43,7 +46,7 @@ class HeaderView(context: Context) : View(context) {
             right -= paint.measureText(clock) + gap
         }
         if (marketText.isNotEmpty()) {
-            paint.color = if (marketText == "交易中") palette.accent else palette.subText
+            paint.color = if (marketActive) palette.accent else palette.subText
             canvas.drawText(marketText, right, baseline, paint)
             right -= paint.measureText(marketText) + gap
         }
@@ -82,7 +85,7 @@ class HeaderView(context: Context) : View(context) {
         paint.textAlign = Paint.Align.LEFT
         var x = gap * 0.3f
         if (s.showIndices) {
-            for ((code, name) in INDICES) {
+            for ((code, name) in if (s.market == Markets.US) US_INDICES else CN_INDICES) {
                 val q = quotes[code] ?: continue
                 val label = "$name ${Format.price(q.displayPrice)} ${Format.percent(q.changePct)}"
                 val w = paint.measureText(label)
@@ -93,10 +96,12 @@ class HeaderView(context: Context) : View(context) {
             }
         }
         if (s.showPortfolio && !s.privacy) {
-            PortfolioSummary.of(config.stocks, quotes)?.let { p ->
-                val realized = if (p.realized != 0.0) "已实现 ${Format.signedMoney(p.realized)}" else ""
+            val usd = s.market == Markets.US
+            // 人民币和美元不能相加，只汇总当前市场
+            PortfolioSummary.of(config.stocks.filter { StockCodes.market(it.code) == s.market }, quotes)?.let { p ->
+                val realized = if (p.realized != 0.0) "已实现 ${Format.signedMoney(p.realized, usd)}" else ""
                 val label = if (p.count > 0) {
-                    "持仓 ${Format.money(p.marketValue)}  今日 ${Format.signedMoney(p.dayProfit)}  持仓盈亏 ${Format.signedMoney(p.profit)}  $realized"
+                    "持仓 ${Format.money(p.marketValue, usd)}  今日 ${Format.signedMoney(p.dayProfit, usd)}  持仓盈亏 ${Format.signedMoney(p.profit, usd)}  $realized"
                 } else {
                     realized
                 }.trim()
@@ -109,7 +114,8 @@ class HeaderView(context: Context) : View(context) {
     }
 
     private companion object {
-        val INDICES = listOf("sh000001" to "上证", "sz399001" to "深证", "sz399006" to "创业板")
+        val CN_INDICES = listOf("sh000001" to "上证", "sz399001" to "深证", "sz399006" to "创业板")
+        val US_INDICES = listOf("us.DJI" to "道指", "us.IXIC" to "纳指", "us.INX" to "标普")
     }
 }
 
@@ -155,7 +161,8 @@ class TickerView(context: Context) : View(context) {
         paint.textSize = h * 0.6f
         val baseline = h * 0.72f
         val gap = h * 1.2f
-        val items = config.stocks.filter { it.enabled }.mapNotNull { s ->
+        val market = config.settings.market
+        val items = config.stocks.filter { it.enabled && StockCodes.market(it.code) == market }.mapNotNull { s ->
             quotes[s.code]?.let { q ->
                 "${s.alias.ifBlank { q.name }} ${Format.price(q.displayPrice, q.decimals)} ${Format.percent(q.changePct)}" to q.change
             }

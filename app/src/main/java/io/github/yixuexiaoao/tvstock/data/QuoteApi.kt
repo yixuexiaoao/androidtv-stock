@@ -5,6 +5,7 @@ import io.github.yixuexiaoao.tvstock.model.KLine
 import io.github.yixuexiaoao.tvstock.model.MinutePoint
 import io.github.yixuexiaoao.tvstock.model.Quote
 import io.github.yixuexiaoao.tvstock.model.SearchHit
+import io.github.yixuexiaoao.tvstock.model.StockCodes
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -46,7 +47,8 @@ object QuoteApi {
         codes.chunked(BATCH).flatMap { QuoteParser.parseTencent(fetch("qt.gtimg.cn", "/q=" + it.joinToString(","), GBK)) }
 
     private fun sina(codes: List<String>): List<Quote> = codes.chunked(BATCH).flatMap {
-        QuoteParser.parseSina(fetch("hq.sinajs.cn", "/list=" + it.joinToString(","), GBK, "https://finance.sina.com.cn"))
+        val list = it.joinToString(",") { code -> QuoteParser.sinaCode(code) }
+        QuoteParser.parseSina(fetch("hq.sinajs.cn", "/list=$list", GBK, "https://finance.sina.com.cn"))
     }
 
     /** source：AUTO / TENCENT / SINA。AUTO 在腾讯失败或无数据时切换新浪。 */
@@ -70,13 +72,24 @@ object QuoteApi {
         }
     }
 
-    fun minute(code: String): List<MinutePoint> =
-        QuoteParser.parseMinute(fetch("web.ifzq.gtimg.cn", "/appstock/app/minute/query?code=$code", Charsets.UTF_8), code)
+    fun minute(code: String): List<MinutePoint> {
+        val api = if (StockCodes.isUs(code)) "UsMinute" else "minute"
+        return QuoteParser.parseMinute(fetch("web.ifzq.gtimg.cn", "/appstock/app/$api/query?code=$code", Charsets.UTF_8), code)
+    }
 
-    fun kline(code: String, period: String, count: Int): List<KLine> = QuoteParser.parseKline(
-        fetch("web.ifzq.gtimg.cn", "/appstock/app/fqkline/get?param=$code,$period,,,$count,qfq", Charsets.UTF_8),
-        code, period,
-    )
+    /**
+     * 美股要用带交易所后缀的代码（usAAPL.OQ）：不带后缀时接口会返回全部历史的日线，
+     * 周线月线却只有一条。exchange 来自腾讯报价。
+     */
+    fun kline(code: String, exchange: String, period: String, count: Int): List<KLine> {
+        val us = StockCodes.isUs(code)
+        val key = if (us) "us$exchange" else code
+        val api = if (us) "usfqkline" else "fqkline"
+        return QuoteParser.parseKline(
+            fetch("web.ifzq.gtimg.cn", "/appstock/app/$api/get?param=$key,$period,,,$count,qfq", Charsets.UTF_8),
+            key, period,
+        )
+    }
 
     fun search(keyword: String): List<SearchHit> {
         val q = URLEncoder.encode(keyword, "UTF-8")

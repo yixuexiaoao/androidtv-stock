@@ -11,8 +11,10 @@ import io.github.yixuexiaoao.tvstock.log.LogEntry
 import io.github.yixuexiaoao.tvstock.model.AlertEvent
 import io.github.yixuexiaoao.tvstock.model.AlertModes
 import io.github.yixuexiaoao.tvstock.model.AppConfig
+import io.github.yixuexiaoao.tvstock.model.Markets
 import io.github.yixuexiaoao.tvstock.model.Quote
 import io.github.yixuexiaoao.tvstock.model.SearchHit
+import io.github.yixuexiaoao.tvstock.model.StockCodes
 import io.github.yixuexiaoao.tvstock.model.StockConfig
 import io.github.yixuexiaoao.tvstock.model.TradeError
 import io.github.yixuexiaoao.tvstock.model.Trades
@@ -142,7 +144,10 @@ object AppCore : WebBackend {
     override fun updateSettings(json: JSONObject) {
         // 只记录字段名，避免把访问密码写进日志
         AppLog.i("Config", "修改设置：" + json.keys().asSequence().joinToString())
-        commit(cfg.copy(settings = cfg.settings.merged(json)))
+        val settings = cfg.settings.merged(json)
+        // 第一次切到美股时放几只示例，否则首页全是空窗口
+        val needsUsStocks = settings.market == Markets.US && cfg.stocks.none { StockCodes.isUs(it.code) }
+        commit(cfg.copy(settings = settings, stocks = if (needsUsStocks) cfg.stocks + AppConfig.DEFAULT_US_STOCKS else cfg.stocks))
     }
 
     @Synchronized
@@ -217,7 +222,10 @@ object AppCore : WebBackend {
     override fun testAlert(code: String?, modes: List<String>?, direction: String) {
         main.post {
             val settings = cfg.settings
-            val target = code ?: cfg.stocks.firstOrNull { it.enabled }?.code ?: return@post
+            val target = code
+                ?: cfg.stocks.firstOrNull { it.enabled && StockCodes.market(it.code) == settings.market }?.code
+                ?: cfg.stocks.firstOrNull { it.enabled }?.code
+                ?: return@post
             val quote = repo.quotes[target]
             val stock = cfg.stocks.firstOrNull { it.code == target }
             val name = stock?.alias?.takeIf { it.isNotBlank() } ?: quote?.name ?: target

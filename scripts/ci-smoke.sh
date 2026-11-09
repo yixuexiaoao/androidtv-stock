@@ -197,10 +197,27 @@ key KEYCODE_BACK
 key KEYCODE_MENU
 sleep 2
 shot 11-settings
+# 焦点先在标签上：下键进入第一项，左右键改值，上键回到标签，右键切换标签
 key KEYCODE_DPAD_DOWN
 key KEYCODE_DPAD_RIGHT
 sleep 1
 shot 12-settings-changed
+key KEYCODE_DPAD_UP
+key KEYCODE_DPAD_RIGHT
+sleep 1
+shot 12a-settings-look
+key KEYCODE_DPAD_RIGHT
+sleep 1
+shot 12b-settings-market
+key KEYCODE_DPAD_RIGHT
+sleep 1
+shot 12c-settings-alert
+key KEYCODE_DPAD_RIGHT
+sleep 1
+shot 12d-settings-stocks
+key KEYCODE_DPAD_RIGHT
+sleep 1
+shot 12e-settings-system
 key KEYCODE_BACK
 sleep 1
 
@@ -219,6 +236,45 @@ post /api/settings '{"theme":"NIGHT"}' > /dev/null; sleep 3; shot 17-theme-night
 post /api/settings '{"theme":"DARK","privacy":true}' > /dev/null; sleep 3; shot 18-privacy
 post /api/settings '{"privacy":false,"sortMode":"ACTIVE"}' > /dev/null; sleep 3
 post /api/settings '{"sortMode":"MANUAL"}' > /dev/null
+
+# ---------- 美股 ----------
+market() { get /api/state | json "d['settings']['market']"; }
+SEARCH=$(get '/api/search?q=AAPL')
+case "$SEARCH" in *usAAPL*) pass "搜索到美股" ;; *) echo "::warning::美股搜索无结果：$SEARCH" ;; esac
+post /api/settings '{"market":"US","layoutId":"4","displayMode":"MIXED"}' > /dev/null
+post /api/stocks '{"code":"BRK.B","costPrice":500,"shares":10,"targetHigh":99999}' > /dev/null
+sleep 12
+US_COUNT=$(get /api/state | json "sum(1 for s in d['stocks'] if s['code'].startswith('us'))")
+[ "$US_COUNT" -ge 5 ] && pass "首次切到美股自动添加示例" || fail "美股股票数量不对：$US_COUNT"
+US_QUOTED=$(get /api/state | json "sum(1 for s in d['stocks'] if s['code'].startswith('us') and s.get('quote'))")
+[ "$US_QUOTED" -ge 4 ] && pass "真实美股行情已获取（$US_QUOTED 只）" || echo "::warning::美股行情异常：$US_QUOTED"
+get /api/state | json "[(s['code'], s['quote']['price'], s['quote']['time']) for s in d['stocks'] if s['code'].startswith('us') and s.get('quote')]"
+get /api/state | json "d.get('portfolioUs')" | grep -q marketValue && pass "美股持仓单独汇总" || fail "没有美股持仓汇总"
+shot 19-us-grid
+post /api/settings '{"displayMode":"KLINE"}' > /dev/null; sleep 8; shot 20-us-kline
+post /api/settings '{"displayMode":"TEXT"}' > /dev/null; sleep 4; shot 21-us-text
+post /api/settings '{"displayMode":"MINUTE","layoutId":"1+5"}' > /dev/null; sleep 8; shot 22-us-minute
+post /api/settings '{"displayMode":"MIXED","layoutId":"4"}' > /dev/null; sleep 4
+key KEYCODE_DPAD_CENTER
+sleep 3
+shot 23-us-zoom
+key KEYCODE_BACK
+sleep 1
+# 遥控器切换：上键到顶部，左键移到 A股 标签，确认
+key KEYCODE_DPAD_UP
+key KEYCODE_DPAD_LEFT
+key KEYCODE_DPAD_LEFT
+sleep 1
+shot 24-market-tabs-focus
+key KEYCODE_DPAD_CENTER
+sleep 3
+[ "$(market)" = "CN" ] && pass "顶部标签切到 A 股" || fail "顶部标签切换失败：$(market)"
+shot 25-back-to-cn
+key KEYCODE_STAR
+sleep 3
+[ "$(market)" = "US" ] && pass "* 键切到美股" || fail "* 键切换失败：$(market)"
+post /api/settings '{"market":"CN"}' > /dev/null
+sleep 2
 
 # ---------- 稳定性 ----------
 sleep 5

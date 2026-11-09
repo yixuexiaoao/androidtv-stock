@@ -25,11 +25,12 @@ class ChartRenderer {
     }
     private val path = Path()
 
-    /** A 股全天 241 个分钟点的横坐标序号；午休时段映射到 11:30/13:00 的同一位置。 */
-    private fun minuteIndex(hhmm: String): Int {
+    /** A 股全天 241 个分钟点的横坐标序号，午休时段映射到 11:30/13:00 的同一位置；美股 391 个点，没有午休。 */
+    private fun minuteIndex(hhmm: String, us: Boolean): Int {
         val h = hhmm.substring(0, 2).toIntOrNull() ?: return 0
         val m = hhmm.substring(2, 4).toIntOrNull() ?: return 0
         val t = h * 60 + m
+        if (us) return (t - (9 * 60 + 30)).coerceIn(0, 390)
         return when {
             t <= 11 * 60 + 30 -> t - (9 * 60 + 30)
             t < 13 * 60 -> 120
@@ -46,6 +47,7 @@ class ChartRenderer {
         palette: Palette,
         fontSize: Float,
         marks: List<PriceMark>,
+        us: Boolean = false,
     ) {
         text.textSize = fontSize
         val axisH = fontSize * 1.3f
@@ -67,7 +69,7 @@ class ChartRenderer {
         val hi = prevClose + maxDiff
         val lo = prevClose - maxDiff
         fun y(p: Double) = plot.bottom - ((p - lo) / (hi - lo)).toFloat() * plot.height()
-        val stepX = plot.width() / 240f
+        val stepX = plot.width() / (if (us) 390f else 240f)
         fun x(i: Int) = plot.left + i * stepX
 
         line.color = palette.grid
@@ -114,14 +116,14 @@ class ChartRenderer {
         text.textAlign = Paint.Align.LEFT
         c.drawText("09:30", plot.left, axisY, text)
         text.textAlign = Paint.Align.CENTER
-        c.drawText("11:30/13:00", plot.centerX(), axisY, text)
+        c.drawText(if (us) "12:45" else "11:30/13:00", plot.centerX(), axisY, text)
         text.textAlign = Paint.Align.RIGHT
-        c.drawText("15:00", plot.right, axisY, text)
+        c.drawText(if (us) "16:00" else "15:00", plot.right, axisY, text)
         text.textAlign = Paint.Align.LEFT
 
         if (points.isEmpty()) return
 
-        val indexed = points.filter { it.price > 0 }.map { minuteIndex(it.hhmm) to it }
+        val indexed = points.filter { it.price > 0 }.map { minuteIndex(it.hhmm, us) to it }
         if (indexed.isEmpty()) return
         val last = indexed.last().second.price
         val trendColor = palette.forChange(last - prevClose)

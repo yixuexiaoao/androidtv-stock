@@ -80,6 +80,7 @@ a.btn{text-decoration:none;display:inline-block}
   <h1>A股看盘TV 后台</h1>
   <span class="status" id="status">连接中…</span>
   <div class="row" style="margin-left:auto">
+    <button class="btn" id="qMarket">切换市场</button>
     <button class="btn" id="qDismiss">关闭电视提醒</button>
     <button class="btn" id="qMute">静音 30 分钟</button>
     <button class="btn" id="qPrivacy">隐私模式</button>
@@ -92,7 +93,7 @@ a.btn{text-decoration:none;display:inline-block}
       <h2>自选股</h2>
       <div class="summary" id="summary"></div>
       <div class="addbar">
-        <input id="search" placeholder="输入代码、名称或拼音，如 600519 / 茅台 / gzmt" autocomplete="off">
+        <input id="search" placeholder="输入代码、名称或拼音，如 600519 / 茅台 / gzmt / AAPL / 苹果" autocomplete="off">
         <button class="btn primary" id="addBtn">添加</button>
         <div class="hits" id="hits" hidden></div>
       </div>
@@ -100,7 +101,7 @@ a.btn{text-decoration:none;display:inline-block}
         <thead><tr><th>股票</th><th>现价</th><th>涨跌幅</th><th>持股</th><th>成本</th><th>市值</th><th>持仓盈亏</th><th>今日盈亏</th><th>已实现</th><th>提醒</th><th class="opscell">操作</th></tr></thead>
         <tbody id="stockRows"></tbody>
       </table></div>
-      <p class="hint">只填代码就会默认监控这只股票；目标价、持仓等都可以不填。</p>
+      <p class="hint">只填代码就会默认监控这只股票；目标价、持仓等都可以不填。美股金额单位是美元，和 A 股分开汇总；电视首页按当前市场显示。</p>
     </div>
   </section>
   <section id="tab-layout">
@@ -238,6 +239,7 @@ TABS.forEach(([id, label]) => {
 const FORMS = () => ({
   displayForm: [
     ['图表与文字', [
+      ['market', 'select', '电视首页市场', [{value:'CN',label:'A股'},{value:'US',label:'美股'}]],
       ['displayMode', 'select', '展示方式', meta.displayModes],
       ['klinePeriod', 'select', 'K线周期', [{value:'day',label:'日K'},{value:'week',label:'周K'},{value:'month',label:'月K'}]],
       ['klineCount', 'number', 'K线数量', {min:20,max:250}],
@@ -268,14 +270,14 @@ const FORMS = () => ({
       ['showPortfolio', 'check', '状态栏显示持仓汇总'],
       ['showTicker', 'check', '底部滚动行情条'],
       ['burnInGuard', 'check', '防烧屏（每分钟微移画面）'],
-      ['keepScreen', 'select', '保持亮屏', [{value:'TRADING',label:'工作日盘中（含午休）'},{value:'ALWAYS',label:'一直'},{value:'NEVER',label:'跟随系统'}]],
+      ['keepScreen', 'select', '保持亮屏', [{value:'TRADING',label:'当前市场盘中'},{value:'ALWAYS',label:'一直'},{value:'NEVER',label:'跟随系统'}]],
     ]],
   ],
   alertForm: [
     ['盯盘提醒（对所有启用的股票生效）', [
       ['speedPct', 'number', '急涨急跌阈值（%，0 为关闭）', {min:0,max:30,step:0.1}],
       ['speedWindowMin', 'number', '急涨急跌时间窗（分钟）', {min:1,max:30}],
-      ['limitAlert', 'check', '涨停、跌停提醒'],
+      ['limitAlert', 'check', '涨停、跌停提醒（仅 A 股）'],
     ]],
     ['默认提醒方式', [
       ['alertModes', 'modes', '到价时'],
@@ -352,14 +354,15 @@ function renderForms() {
 }
 
 /* ---------- 自选股 ---------- */
-const signedMoney = n => (n > 0 ? '+' : '') + money(n);
+const signedMoney = (n, usd) => (n > 0 ? '+' : '') + money(n, usd);
 const fmt = (n, d = 2) => n == null ? '--' : Number(n).toFixed(d);
 const sign = n => n > 0 ? 'up' : n < 0 ? 'down' : 'muted';
 const signed = (n, d = 2) => n == null ? '--' : (n > 0 ? '+' : '') + Number(n).toFixed(d);
-function money(n) {
+function money(n, usd) {
   if (n == null) return '--';
   const a = Math.abs(n);
-  return a >= 1e8 ? (n / 1e8).toFixed(2) + '亿' : a >= 1e5 ? (n / 1e4).toFixed(2) + '万' : n.toFixed(2);
+  const text = a >= 1e8 ? (a / 1e8).toFixed(2) + '亿' : a >= 1e5 ? (a / 1e4).toFixed(2) + '万' : a.toFixed(2);
+  return (n < 0 ? '-' : '') + (usd ? '$' : '') + text;
 }
 
 const findStock = code => state.stocks.find(s => s.code === code);
@@ -372,17 +375,17 @@ function conditionCount(s) {
 
 // 每列的文字和颜色（第一列股票名和操作列单独处理）
 function stockColumns(s) {
-  const q = s.quote, h = s.holding, d = q ? q.decimals : 2;
+  const q = s.quote, h = s.holding, d = q ? q.decimals : 2, usd = s.code.startsWith('us');
   const conds = conditionCount(s);
   return [
     [q ? fmt(q.price, d) : '--', q ? sign(q.change) : ''],
     [q ? signed(q.changePct) + '%' : '--', q ? sign(q.change) : ''],
     [s.shares ?? '--', ''],
     [s.costPrice != null ? fmt(s.costPrice, d) : '--', ''],
-    [h ? money(h.marketValue) : '--', ''],
-    [h && h.profit != null ? `${signedMoney(h.profit)} (${signed(h.profitPct)}%)` : '--', h && h.profit != null ? sign(h.profit) : ''],
-    [h ? signedMoney(h.dayProfit) : '--', h ? sign(h.dayProfit) : ''],
-    [s.realizedProfit ? signedMoney(s.realizedProfit) : '--', s.realizedProfit ? sign(s.realizedProfit) : ''],
+    [h ? money(h.marketValue, usd) : '--', ''],
+    [h && h.profit != null ? `${signedMoney(h.profit, usd)} (${signed(h.profitPct)}%)` : '--', h && h.profit != null ? sign(h.profit) : ''],
+    [h ? signedMoney(h.dayProfit, usd) : '--', h ? sign(h.dayProfit) : ''],
+    [s.realizedProfit ? signedMoney(s.realizedProfit, usd) : '--', s.realizedProfit ? sign(s.realizedProfit) : ''],
     [conds ? conds + ' 项' : '--', ''],
   ];
 }
@@ -430,14 +433,20 @@ function renderStocks() {
     r.sell.disabled = r.clear.disabled = s.shares == null;
   });
 
-  const p = state.portfolio;
-  $('summary').replaceChildren(...(p ? [
-    ['持仓市值', money(p.marketValue), ''],
-    ['今日盈亏', signedMoney(p.dayProfit), sign(p.dayProfit)],
-    ['持仓盈亏', signedMoney(p.profit), sign(p.profit)],
+  $('summary').replaceChildren(...summaryItems(state.portfolio, ''), ...summaryItems(state.portfolioUs, '美股'));
+}
+
+// 人民币和美元分开汇总
+function summaryItems(p, prefix) {
+  if (!p) return [];
+  const usd = !!prefix;
+  return [
+    ['持仓市值', money(p.marketValue, usd), ''],
+    ['今日盈亏', signedMoney(p.dayProfit, usd), sign(p.dayProfit)],
+    ['持仓盈亏', signedMoney(p.profit, usd), sign(p.profit)],
     ['持仓收益率', p.profitPct != null ? signed(p.profitPct) + '%' : '--', sign(p.profitPct)],
-    ['已实现盈亏', signedMoney(p.realized), sign(p.realized)],
-  ].map(([k, v, c]) => el('div', {}, el('span', { class: 'muted' }, k), el('b', { class: c }, v))) : []));
+    ['已实现盈亏', signedMoney(p.realized, usd), sign(p.realized)],
+  ].map(([k, v, c]) => el('div', {}, el('span', { class: 'muted' }, prefix + k), el('b', { class: c }, v)));
 }
 
 async function move(code, delta) {
@@ -458,7 +467,8 @@ async function removeStock(code) {
 async function addStock(code) {
   $('hits').hidden = true;
   if (!code) return toast('请输入股票代码');
-  if (state.stocks.some(s => s.code === code || s.code.endsWith(code))) return toast('已在自选中');
+  const short = code.toUpperCase();
+  if (state.stocks.some(s => s.code === code || s.code.replace(/^(sh|sz|bj|us\.?)/, '') === short)) return toast('已在自选中');
   try {
     await api('/api/stocks', { code });
     $('search').value = '';
@@ -468,6 +478,17 @@ async function addStock(code) {
 }
 
 let searchTimer;
+let lastHits = { q: '', hits: [] };
+// 回车或点添加：优先用搜索结果，否则拼音会被当成美股代码
+function addTyped() {
+  const q = $('search').value.trim();
+  const hits = lastHits.q === q ? lastHits.hits : [];
+  // 6 位数字交给后台判断市场（000001 是平安银行，不是上证指数）；代码完全相同的结果优先
+  if (/^\d{6}$/.test(q)) return addStock(q);
+  const lower = q.toLowerCase();
+  const hit = hits.find(h => h.code.toLowerCase() === lower || h.code.toLowerCase().replace(/^(sh|sz|bj|us\.?)/, '') === lower) || hits[0];
+  addStock(hit ? hit.code : q);
+}
 $('search').addEventListener('input', e => {
   clearTimeout(searchTimer);
   const q = e.target.value.trim();
@@ -476,13 +497,14 @@ $('search').addEventListener('input', e => {
     try {
       const hits = await api('/api/search?q=' + encodeURIComponent(q));
       if ($('search').value.trim() !== q) return;
+      lastHits = { q, hits };
       $('hits').replaceChildren(...hits.map(h => el('div', { onclick: () => addStock(h.code) }, `${h.name}  ${h.code}`)));
       $('hits').hidden = !hits.length;
     } catch (err) { /* 搜索失败时仍可直接输入代码添加 */ }
   }, 250);
 });
-$('search').addEventListener('keydown', e => { if (e.key === 'Enter') addStock($('search').value.trim()); });
-$('addBtn').addEventListener('click', () => addStock($('search').value.trim()));
+$('search').addEventListener('keydown', e => { if (e.key === 'Enter') addTyped(); });
+$('addBtn').addEventListener('click', addTyped);
 document.addEventListener('click', e => { if (!$('search').parentNode.contains(e.target)) $('hits').hidden = true; });
 
 /* ---------- 弹窗：编辑 / 提醒 / 加仓减仓清仓 ---------- */
@@ -867,7 +889,9 @@ function renderQuick() {
   const minutes = state.status.muteRemainingMin || 0;
   setText($('qMute'), minutes > 0 ? `取消静音（剩 ${minutes} 分）` : '静音 30 分钟');
   setText($('qPrivacy'), state.settings.privacy ? '关闭隐私模式' : '隐私模式');
+  setText($('qMarket'), state.settings.market === 'US' ? '电视切到 A 股' : '电视切到美股');
 }
+$('qMarket').addEventListener('click', () => saveSettings({ market: state.settings.market === 'US' ? 'CN' : 'US' }).then(refresh).then(renderForms));
 $('qDismiss').addEventListener('click', () => api('/api/alert/dismiss', {}).then(() => toast('已关闭提醒')).catch(e => toast(e.message)));
 $('qMute').addEventListener('click', () => api('/api/alert/mute', { minutes: (state.status.muteRemainingMin || 0) > 0 ? 0 : 30 }).then(refresh).catch(e => toast(e.message)));
 $('qPrivacy').addEventListener('click', () => saveSettings({ privacy: !state.settings.privacy }).then(renderQuick));

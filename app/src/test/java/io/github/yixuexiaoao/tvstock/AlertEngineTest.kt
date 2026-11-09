@@ -27,6 +27,21 @@ class AlertEngineTest {
 
     private val stock = StockConfig("sh600519", targetHigh = 110.0, targetLow = 90.0)
 
+    @Test fun usStockUsesNewYorkTradingHours() {
+        val usQuote = Quote(
+            "usAAPL", "苹果", 120.0, 100.0, 100.0, 120.0, 120.0, 20.0, 20.0, 1.0, 1.0,
+            time = "20261109100000",
+        )
+        val usStock = StockConfig("usAAPL", targetHigh = 110.0)
+        // 北京 10:00 是 A 股盘中，但美股没开盘
+        assertTrue(AlertEngine().evaluate(usStock, usQuote, settings, trading).isEmpty())
+        // 北京 23:00 = 美东 10:00
+        val usOpen = trading + 13 * 3600_000L
+        assertEquals(1, AlertEngine().evaluate(usStock, usQuote, settings, usOpen).size)
+        // A 股此时不提醒
+        assertTrue(AlertEngine().evaluate(stock, quote(120.0), settings, usOpen).isEmpty())
+    }
+
     @Test fun cooldownStopsRapidReCrossing() {
         val e = AlertEngine()
         assertEquals(1, e.evaluate(stock, quote(111.0), settings, trading).size)

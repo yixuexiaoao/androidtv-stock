@@ -3,6 +3,7 @@ package io.github.yixuexiaoao.tvstock.ui
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.Typeface
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -18,6 +19,7 @@ import android.widget.TextView
 import android.widget.Toast
 import io.github.yixuexiaoao.tvstock.AppCore
 import io.github.yixuexiaoao.tvstock.data.MarketClock
+import io.github.yixuexiaoao.tvstock.data.QuoteRepository
 import io.github.yixuexiaoao.tvstock.log.AppLog
 import io.github.yixuexiaoao.tvstock.model.AlertEvent
 import io.github.yixuexiaoao.tvstock.model.AlertModes
@@ -25,6 +27,8 @@ import io.github.yixuexiaoao.tvstock.model.AppConfig
 import io.github.yixuexiaoao.tvstock.model.DisplayModes
 import io.github.yixuexiaoao.tvstock.model.GridLayoutDef
 import io.github.yixuexiaoao.tvstock.model.Layouts
+import io.github.yixuexiaoao.tvstock.model.Markets
+import io.github.yixuexiaoao.tvstock.model.StockCodes
 import io.github.yixuexiaoao.tvstock.model.StockConfig
 import io.github.yixuexiaoao.tvstock.model.StockSort
 import io.github.yixuexiaoao.tvstock.update.UpdateManager
@@ -34,7 +38,7 @@ import kotlin.math.max
 /**
  * 主看盘界面。遥控器：
  * 方向键移动焦点（到边缘翻页）；确认放大/还原；长按确认或菜单键打开设置；
- * 频道+/- 翻页；数字键切换画面数；0 切换图文方式；返回键退出放大或退出 App。
+ * 频道+/- 翻页；数字键切换画面数；0 切换图文方式；* 键或顶部标签切换 A 股/美股；返回键退出放大或退出 App。
  */
 class MainActivity : Activity(), AppCore.Listener {
     private val handler = Handler(Looper.getMainLooper())
@@ -44,6 +48,8 @@ class MainActivity : Activity(), AppCore.Listener {
     private lateinit var headerRow: LinearLayout
     private lateinit var header: HeaderView
     private lateinit var gear: TextView
+    private val marketTabs = LinkedHashMap<String, TextView>()
+    private var shownMarket = ""
     private lateinit var grid: FrameLayout
     private lateinit var ticker: TickerView
     private lateinit var flashOverlay: FlashOverlayView
@@ -133,6 +139,18 @@ class MainActivity : Activity(), AppCore.Listener {
             setOnFocusChangeListener { _, _ -> applyGearStyle() }
         }
         headerRow.addView(header, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
+        Markets.ALL.forEach { market ->
+            val tab = TextView(this).apply {
+                text = Markets.label(market)
+                gravity = Gravity.CENTER
+                isFocusable = true
+                setPadding(dp(12), 0, dp(12), 0)
+                setOnClickListener { setMarket(market) }
+                setOnFocusChangeListener { _, _ -> applyGearStyle() }
+            }
+            marketTabs[market] = tab
+            headerRow.addView(tab, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        }
         headerRow.addView(gear, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT))
         grid = FrameLayout(this)
         ticker = TickerView(this)
@@ -169,7 +187,7 @@ class MainActivity : Activity(), AppCore.Listener {
         val keep = when (config.settings.keepScreen) {
             "ALWAYS" -> true
             "NEVER" -> false
-            else -> MarketClock.isKeepAwakeTime(System.currentTimeMillis())
+            else -> MarketClock.isKeepAwakeTime(System.currentTimeMillis(), config.settings.market)
         }
         if (keep == screenKept) return
         screenKept = keep
@@ -184,7 +202,21 @@ class MainActivity : Activity(), AppCore.Listener {
         val p = Palette.of(config.settings)
         gear.setTextColor(if (gear.isFocused) Color.BLACK else p.subText)
         gear.setBackgroundColor(if (gear.isFocused) p.accent else p.background)
+        marketTabs.forEach { (market, tab) ->
+            val selected = market == config.settings.market
+            tab.setTextColor(
+                when {
+                    tab.isFocused -> Color.BLACK
+                    selected -> p.accent
+                    else -> p.subText
+                },
+            )
+            tab.typeface = if (selected) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+            tab.setBackgroundColor(if (tab.isFocused) p.accent else p.background)
+        }
     }
+
+    private fun headerFocused(): Boolean = gear.isFocused || marketTabs.values.any { it.isFocused }
 
     override fun onStart() {
         super.onStart()
@@ -217,12 +249,23 @@ class MainActivity : Activity(), AppCore.Listener {
 
     // ---- 渲染 ----
 
-    /** 按当前排序方式的可显示股票；分页、放大切换和提醒跳页都用这个顺序。 */
-    private fun enabledStocks(): List<StockConfig> =
-        StockSort.apply(config.stocks.filter { it.enabled }, AppCore.repo.quotes, config.settings.sortMode)
+    /** 当前市场按排序方式的可显示股票；分页、放大切换和提醒跳页都用这个顺序。 */
+    private fun enabledStocks(): List<StockConfig> {
+        val market = config.settings.market
+        val stocks = config.stocks.filter { it.enabled && StockCodes.market(it.code) == market }
+        return StockSort.apply(stocks, AppCore.repo.quotes, config.settings.sortMode)
+    }
 
     private fun applyConfig() {
         val s = config.settings
+        val marketChanged = s.market != shownMarket
+        if (marketChanged) {
+            // 两个市场的股票不同，放大和页码都要重来
+            shownMarket = s.market
+            zoomCode = null
+            zoomMode = ""
+            page = 0
+        }
         val palette = Palette.of(s)
         appliedTheme = Palette.resolvedTheme(s)
         root.setBackgroundColor(palette.background)
@@ -241,6 +284,11 @@ class MainActivity : Activity(), AppCore.Listener {
         ensureCells()
         bindCells()
         refreshHeader()
+        if (marketChanged) {
+            grid.post {
+                if (!headerFocused() && cells.none { it.isFocused }) cells.firstOrNull { it.isFocusable }?.requestFocus()
+            }
+        }
     }
 
     private fun currentLayout(): GridLayoutDef =
@@ -252,7 +300,7 @@ class MainActivity : Activity(), AppCore.Listener {
         if (layout == builtLayout && gap == builtGap && cells.isNotEmpty()) return
         val focusIndex = pendingFocusIndex ?: cells.indexOfFirst { it.isFocused }
         pendingFocusIndex = null
-        val keepGearFocus = gear.isFocused
+        val keepHeaderFocus = headerFocused()
         builtLayout = layout
         builtGap = gap
         grid.removeAllViews()
@@ -269,7 +317,7 @@ class MainActivity : Activity(), AppCore.Listener {
         }
         positionCells()
         grid.post {
-            if (keepGearFocus) return@post
+            if (keepHeaderFocus) return@post
             val target = cells.getOrNull(max(focusIndex, 0))?.takeIf { it.isFocusable }
                 ?: cells.firstOrNull { it.isFocusable }
             (target ?: gear).requestFocus()
@@ -361,11 +409,14 @@ class MainActivity : Activity(), AppCore.Listener {
         header.webUrl = AppCore.webUrl
         header.error = repo.lastError
         val now = System.currentTimeMillis()
-        header.marketText = MarketClock.status(now, repo.quotes["sh000001"]?.tradeDate)
+        val market = config.settings.market
+        val status = MarketClock.status(now, repo.quotes[QuoteRepository.indexCodes(market).first()]?.tradeDate, market)
+        header.marketActive = status == "交易中"
+        header.marketText = if (market == Markets.US) "$status 美东 ${MarketClock.timeString(now, market).take(5)}" else status
         // 交易时段行情太久没更新时明确提示，避免把旧价格当实时价格
         val age = (now - repo.lastSuccessMs) / 1000
         val limit = maxOf(config.settings.refreshSec * 3L, 15L)
-        header.delayText = if (MarketClock.isTradingTime(now) && repo.lastSuccessMs > 0 && age > limit) "行情延迟 ${age}秒" else ""
+        header.delayText = if (MarketClock.isTradingTime(now, market) && repo.lastSuccessMs > 0 && age > limit) "行情延迟 ${age}秒" else ""
         header.muteText = if (AppCore.isMuted) "静音 ${AppCore.muteRemainingMin()}分" else ""
         header.updateText = when (UpdateManager.state) {
             UpdateManager.State.AVAILABLE, UpdateManager.State.READY -> "新版本 ${UpdateManager.release?.version}"
@@ -400,6 +451,16 @@ class MainActivity : Activity(), AppCore.Listener {
 
     override fun onAlert(event: AlertEvent) {
         val now = System.currentTimeMillis()
+        val eventMarket = StockCodes.market(event.code)
+        if (eventMarket != config.settings.market) {
+            if (config.settings.alertJumpPage && event.modes.contains(AlertModes.CELL)) {
+                // 窗口闪烁只有切到对应市场才看得到
+                AppCore.updateSettings(JSONObject().put("market", eventMarket))
+                applyConfig()
+            } else if (!event.modes.contains(AlertModes.BANNER) && !event.modes.contains(AlertModes.FULLSCREEN)) {
+                toast(event.message)
+            }
+        }
         val soundAllowed = event.isTest || (!AppCore.isMuted && now - lastSoundMs >= SOUND_GAP_MS)
         if (event.modes.contains(AlertModes.SOUND) && soundAllowed) {
             lastSoundMs = now
@@ -510,6 +571,12 @@ class MainActivity : Activity(), AppCore.Listener {
         toast(if (minutes > 0) "提示音静音 $minutes 分钟" else "已取消静音")
     }
 
+    private fun setMarket(market: String) {
+        if (market == config.settings.market) return
+        AppCore.updateSettings(JSONObject().put("market", market))
+        toast("已切换到" + Markets.label(market))
+    }
+
     private fun togglePrivacy() {
         val next = !config.settings.privacy
         AppCore.updateSettings(JSONObject().put("privacy", next))
@@ -539,6 +606,8 @@ class MainActivity : Activity(), AppCore.Listener {
                 add((if (zoomCode != null) "还原宫格" else "放大查看") to { toggleZoom(cell) })
                 addAll(StockDialogs.stockActions(this@MainActivity, code))
             }
+            val otherMarket = Markets.other(config.settings.market)
+            add(("切换到" + Markets.label(otherMarket)) to { setMarket(otherMarket) })
             add((if (AppCore.isMuted) "取消静音" else "提示音静音 $MUTE_MINUTES 分钟") to ::toggleMute)
             add((if (config.settings.privacy) "关闭隐私模式" else "开启隐私模式") to ::togglePrivacy)
             add(("切换排序（当前：" + StockSort.label(config.settings.sortMode) + "）") to ::cycleSort)
@@ -571,7 +640,7 @@ class MainActivity : Activity(), AppCore.Listener {
         renderAlerts()
         val focused = cells.firstOrNull { it.isFocused }
         if (focused == null || focused.stock == null) {
-            if (!gear.isFocused) cells.firstOrNull { it.stock != null }?.requestFocus()
+            if (!headerFocused()) cells.firstOrNull { it.stock != null }?.requestFocus()
         }
     }
 
@@ -685,6 +754,10 @@ class MainActivity : Activity(), AppCore.Listener {
             }
             KeyEvent.KEYCODE_0, KeyEvent.KEYCODE_NUMPAD_0 -> {
                 cycleDisplayMode()
+                return true
+            }
+            KeyEvent.KEYCODE_STAR -> {
+                setMarket(Markets.other(config.settings.market))
                 return true
             }
             KeyEvent.KEYCODE_PROG_RED -> {

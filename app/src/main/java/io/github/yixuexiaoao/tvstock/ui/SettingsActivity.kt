@@ -3,12 +3,14 @@ package io.github.yixuexiaoao.tvstock.ui
 import android.app.Activity
 import android.app.AlertDialog
 import android.graphics.Color
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.text.InputType
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.KeyEvent
+import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -22,6 +24,7 @@ import io.github.yixuexiaoao.tvstock.model.AlertModes
 import io.github.yixuexiaoao.tvstock.model.AppSettings
 import io.github.yixuexiaoao.tvstock.model.DisplayModes
 import io.github.yixuexiaoao.tvstock.model.Layouts
+import io.github.yixuexiaoao.tvstock.model.Markets
 import io.github.yixuexiaoao.tvstock.model.StockCodes
 import io.github.yixuexiaoao.tvstock.model.StockConfig
 import io.github.yixuexiaoao.tvstock.model.StockSort
@@ -30,7 +33,10 @@ import io.github.yixuexiaoao.tvstock.update.UpdateManager
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** 电视端设置：全部可用遥控器操作。左右键改值，确认键循环下一项或执行。 */
+/**
+ * 电视端设置：按功能分标签，全部可用遥控器操作。
+ * 焦点在标签上时左右键切换标签、下键进入；在设置项上时左右键改值、确认键执行、频道键切换标签。
+ */
 class SettingsActivity : Activity(), AppCore.Listener {
     private class Row(
         val label: String,
@@ -39,8 +45,12 @@ class SettingsActivity : Activity(), AppCore.Listener {
         val onOk: (() -> Unit)? = null,
     )
 
+    private lateinit var root: LinearLayout
+    private lateinit var tabBar: LinearLayout
     private lateinit var list: LinearLayout
     private lateinit var scroll: ScrollView
+    private val tabs = ArrayList<TextView>()
+    private var tabIndex = 0
     private var builtPalette: Palette? = null
     private var builtStocks: List<StockConfig>? = null
     private val palette: Palette get() = Palette.of(settings)
@@ -50,15 +60,18 @@ class SettingsActivity : Activity(), AppCore.Listener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        scroll = ScrollView(this).apply { isFillViewport = true }
-        list = LinearLayout(this).apply {
+        root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             // 电视安全区：四周留白防止过扫描裁切
-            setPadding(dp(56), dp(28), dp(56), dp(28))
+            setPadding(dp(56), dp(24), dp(56), dp(20))
         }
+        tabBar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        scroll = ScrollView(this).apply { isFillViewport = true }
+        list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         scroll.addView(list, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        setContentView(scroll)
+        setContentView(root)
         rebuild(0)
+        tabs[tabIndex].requestFocus()
     }
 
     override fun onStart() {
@@ -131,21 +144,25 @@ class SettingsActivity : Activity(), AppCore.Listener {
         val s = settings
         val layoutIds = Layouts.ALL.map { it.id } + (if (s.customLayout != null) listOf(Layouts.CUSTOM_ID) else emptyList())
         val stockRows = AppCore.config.stocks.map { stockRow(it) } +
-            Row("＋ 添加股票", { "输入 6 位代码" }, onOk = ::addStockDialog)
+            Row("＋ 添加股票", { "A 股代码或美股代码" }, onOk = ::addStockDialog)
         return listOf(
-            "显示" to listOf(
+            "画面" to listOf(
                 Row("画面布局", { settings.effectiveLayout().name }, { d -> put("layoutId", stepped(layoutIds, settings.layoutId, d)) }),
                 choice("展示方式", DisplayModes.ALL, { settings.displayMode }, DisplayModes::label, "displayMode"),
                 choice("K线周期", listOf("day", "week", "month"), { settings.klinePeriod }, { mapOf("day" to "日K", "week" to "周K", "month" to "月K")[it] ?: it }, "klinePeriod"),
+                choice("排序", StockSort.ALL, { settings.sortMode }, StockSort::label, "sortMode"),
+                number("窗口间距", listOf(0, 2, 4, 6, 8, 12, 16), { settings.gridGap }, "px", "gridGap"),
+                number("屏幕边距（画面被裁切时调大）", listOf(0, 8, 16, 24, 32, 48, 64), { settings.screenMargin }, "dp", "screenMargin"),
+                number("自动翻页", listOf(0, 5, 10, 15, 30, 60, 120, 300), { settings.pageIntervalSec }, "秒", "pageIntervalSec", "关闭"),
+                choice("保持亮屏", listOf("TRADING", "ALWAYS", "NEVER"), { settings.keepScreen }, { mapOf("TRADING" to "当前市场盘中", "ALWAYS" to "一直", "NEVER" to "跟随系统")[it] ?: it }, "keepScreen"),
+                toggle("防烧屏微移", { settings.burnInGuard }, "burnInGuard"),
+            ),
+            "外观" to listOf(
                 number("字体大小", listOf(50, 60, 70, 80, 90, 100, 110, 120, 130, 150, 175, 200, 250), { settings.fontScale }, "%", "fontScale"),
                 choice("主题", Themes.ALL, { settings.theme }, Themes::label, "theme"),
                 time("白天开始（自动主题）", { settings.dayStart }, "dayStart"),
                 time("夜晚开始（自动主题）", { settings.nightStart }, "nightStart"),
                 choice("涨跌颜色", listOf("RED_UP", "GREEN_UP"), { settings.colorScheme }, { if (it == "RED_UP") "红涨绿跌" else "绿涨红跌" }, "colorScheme"),
-                choice("排序", StockSort.ALL, { settings.sortMode }, StockSort::label, "sortMode"),
-                number("窗口间距", listOf(0, 2, 4, 6, 8, 12, 16), { settings.gridGap }, "px", "gridGap"),
-                number("屏幕边距（画面被裁切时调大）", listOf(0, 8, 16, 24, 32, 48, 64), { settings.screenMargin }, "dp", "screenMargin"),
-                number("自动翻页", listOf(0, 5, 10, 15, 30, 60, 120, 300), { settings.pageIntervalSec }, "秒", "pageIntervalSec", "关闭"),
                 toggle("顶部状态栏", { settings.showHeader }, "showHeader"),
                 toggle("大盘指数", { settings.showIndices }, "showIndices"),
                 toggle("时钟", { settings.showClock }, "showClock"),
@@ -156,10 +173,9 @@ class SettingsActivity : Activity(), AppCore.Listener {
                 toggle("图表标记线", { settings.showTargetLines }, "showTargetLines"),
                 toggle("隐私模式（隐藏持仓金额）", { settings.privacy }, "privacy"),
                 toggle("价格跳动闪烁", { settings.priceTickFlash }, "priceTickFlash"),
-                toggle("防烧屏微移", { settings.burnInGuard }, "burnInGuard"),
-                choice("保持亮屏", listOf("TRADING", "ALWAYS", "NEVER"), { settings.keepScreen }, { mapOf("TRADING" to "工作日盘中（含午休）", "ALWAYS" to "一直", "NEVER" to "跟随系统")[it] ?: it }, "keepScreen"),
             ),
-            "刷新" to listOf(
+            "行情" to listOf(
+                choice("首页市场", Markets.ALL, { settings.market }, Markets::label, "market"),
                 number("交易时段刷新", listOf(1, 2, 3, 5, 10, 15, 30, 60, 120, 300), { settings.refreshSec }, "秒", "refreshSec"),
                 number("非交易时段刷新", listOf(5, 30, 60, 300, 600, 1800, 3600), { settings.idleRefreshSec }, "秒", "idleRefreshSec"),
                 choice("行情来源", listOf("AUTO", "TENCENT", "SINA"), { settings.source }, { mapOf("AUTO" to "自动", "TENCENT" to "腾讯", "SINA" to "新浪")[it] ?: it }, "source"),
@@ -181,7 +197,7 @@ class SettingsActivity : Activity(), AppCore.Listener {
                     put("speedPct", stepped(listOf(0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 5.0), settings.speedPct, d))
                 }),
                 number("急涨急跌时间窗", listOf(1, 2, 3, 5, 10, 15, 30), { settings.speedWindowMin }, "分钟", "speedWindowMin"),
-                toggle("涨停跌停提醒", { settings.limitAlert }, "limitAlert"),
+                toggle("涨停跌停提醒（仅 A 股）", { settings.limitAlert }, "limitAlert"),
                 choice("提醒频率", listOf("EVERY", "DAILY"), { settings.alertFrequency }, { if (it == "DAILY") "每天一次" else "每次穿越" }, "alertFrequency"),
                 number("再次提醒冷却", listOf(0, 1, 3, 5, 10, 30, 60), { settings.alertCooldownMin }, "分钟", "alertCooldownMin", "无"),
                 number("持续满足时重复", listOf(0, 1, 5, 10, 30, 60), { settings.alertRepeatMin }, "分钟", "alertRepeatMin", "只提醒一次"),
@@ -192,7 +208,7 @@ class SettingsActivity : Activity(), AppCore.Listener {
                     finish()
                 }),
             ),
-            "自选股（确认键管理）" to stockRows,
+            "自选股" to stockRows,
             "系统" to listOf(
                 Row("使用帮助", { "遥控器按键说明" }, onOk = { StockDialogs.help(this) }),
                 Row("最近提醒", { "查看" }, onOk = { StockDialogs.recentAlerts(this) }),
@@ -238,37 +254,110 @@ class SettingsActivity : Activity(), AppCore.Listener {
     }
 
     private fun rebuild(focusIndex: Int) {
+        val tabWasFocused = tabs.any { it.isFocused }
         builtPalette = palette
         builtStocks = AppCore.config.stocks
-        scroll.setBackgroundColor(palette.background)
-        list.removeAllViews()
-        rows.clear()
-        list.addView(TextView(this).apply {
+        root.setBackgroundColor(palette.background)
+        root.removeAllViews()
+        root.addView(TextView(this).apply {
             text = "设置"
             setTextColor(palette.text)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 26f)
-            setPadding(0, 0, 0, dp(6))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
+            setPadding(0, 0, 0, dp(4))
         })
-        list.addView(TextView(this).apply {
-            text = "方向键上下选择，左右修改，确认键执行，返回键退出。完整设置（持仓、自定义布局等）请使用 Web 后台。"
+        root.addView(TextView(this).apply {
+            text = "左右键切换标签，下键进入；设置项上左右键修改，确认键执行，频道键换标签，返回键退出。持仓、自定义布局等请使用 Web 后台。"
             setTextColor(palette.subText)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-            setPadding(0, 0, 0, dp(6))
+            setPadding(0, 0, 0, dp(8))
         })
-        sections().forEach { (title, sectionRows) ->
-            list.addView(TextView(this).apply {
-                text = title
-                setTextColor(palette.accent)
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-                setPadding(dp(4), dp(14), 0, dp(4))
-            })
-            sectionRows.forEach { addRow(it) }
+        buildTabs()
+        root.addView(tabBar)
+        root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f).apply { topMargin = dp(10) })
+        showRows()
+        if (tabWasFocused) {
+            tabs[tabIndex].requestFocus()
+        } else {
+            rows.getOrNull(focusIndex.coerceIn(0, rows.size - 1))?.first?.requestFocus()
         }
-        rows.getOrNull(focusIndex.coerceIn(0, rows.size - 1))?.first?.requestFocus()
+    }
+
+    private fun buildTabs() {
+        tabBar.removeAllViews()
+        tabs.clear()
+        sections().forEachIndexed { index, (title, _) ->
+            val tab = TextView(this).apply {
+                id = View.generateViewId()
+                text = title
+                gravity = Gravity.CENTER
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+                setPadding(dp(22), dp(7), dp(22), dp(7))
+                isFocusable = true
+                isClickable = true
+                setOnFocusChangeListener { _, hasFocus ->
+                    // 电视上的习惯：焦点移到标签就显示内容，不用再按确认
+                    if (hasFocus && index != tabIndex) {
+                        tabIndex = index
+                        showRows()
+                    }
+                    styleTabs()
+                }
+                setOnClickListener {
+                    if (index != tabIndex) {
+                        tabIndex = index
+                        showRows()
+                    }
+                    styleTabs()
+                    rows.firstOrNull()?.first?.requestFocus()
+                }
+            }
+            tabs += tab
+            tabBar.addView(tab, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                rightMargin = dp(6)
+            })
+        }
+        styleTabs()
+    }
+
+    private fun styleTabs() {
+        tabs.forEachIndexed { index, tab ->
+            val active = index == tabIndex
+            tab.setTextColor(
+                when {
+                    tab.isFocused -> palette.background
+                    active -> palette.accent
+                    else -> palette.subText
+                },
+            )
+            tab.typeface = if (active) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+            tab.background = GradientDrawable().apply {
+                setColor(
+                    when {
+                        tab.isFocused -> palette.accent
+                        active -> palette.cell
+                        else -> Color.TRANSPARENT
+                    },
+                )
+                cornerRadius = dp(6).toFloat()
+            }
+        }
+    }
+
+    /** 显示当前标签的设置项。标签和第一项互相指定焦点方向，避免按上下键时落到相邻的标签。 */
+    private fun showRows() {
+        list.removeAllViews()
+        rows.clear()
+        sections()[tabIndex].second.forEach { addRow(it) }
+        rows.firstOrNull()?.first?.let { first ->
+            first.nextFocusUpId = tabs[tabIndex].id
+            tabs.forEach { it.nextFocusDownId = first.id }
+        }
+        scroll.scrollTo(0, 0)
     }
 
     private fun addRow(row: Row) {
         val view = TextView(this).apply {
+            id = View.generateViewId()
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
             setPadding(dp(14), dp(9), dp(14), dp(9))
             gravity = Gravity.CENTER_VERTICAL
@@ -322,9 +411,21 @@ class SettingsActivity : Activity(), AppCore.Listener {
             (event.keyCode == KeyEvent.KEYCODE_DPAD_LEFT || event.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT)
         ) {
             val row = rows.firstOrNull { it.first.isFocused }?.second
-            if (row?.onStep != null) {
-                row.onStep.invoke(if (event.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) 1 else -1)
+            if (row != null) {
+                // 设置项上的左右键只改值，不让焦点跑到别处
+                row.onStep?.invoke(if (event.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) 1 else -1)
                 refreshTexts()
+                return true
+            }
+        }
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            val delta = when (event.keyCode) {
+                KeyEvent.KEYCODE_CHANNEL_DOWN, KeyEvent.KEYCODE_PAGE_DOWN -> 1
+                KeyEvent.KEYCODE_CHANNEL_UP, KeyEvent.KEYCODE_PAGE_UP -> -1
+                else -> 0
+            }
+            if (delta != 0) {
+                tabs[Math.floorMod(tabIndex + delta, tabs.size)].requestFocus()
                 return true
             }
         }
@@ -337,7 +438,7 @@ class SettingsActivity : Activity(), AppCore.Listener {
 
     private fun addStockDialog() {
         val input = EditText(this).apply {
-            hint = "如 600519、sz000001"
+            hint = "如 600519、sz000001、AAPL、.DJI"
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
         }
         dialog()

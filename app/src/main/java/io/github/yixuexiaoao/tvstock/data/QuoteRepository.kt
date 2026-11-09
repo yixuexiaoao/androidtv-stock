@@ -3,8 +3,10 @@ package io.github.yixuexiaoao.tvstock.data
 import io.github.yixuexiaoao.tvstock.log.AppLog
 import io.github.yixuexiaoao.tvstock.model.AppConfig
 import io.github.yixuexiaoao.tvstock.model.KLine
+import io.github.yixuexiaoao.tvstock.model.Markets
 import io.github.yixuexiaoao.tvstock.model.MinutePoint
 import io.github.yixuexiaoao.tvstock.model.Quote
+import io.github.yixuexiaoao.tvstock.model.StockCodes
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
@@ -82,7 +84,8 @@ class QuoteRepository(
 
     private fun nextDelayMs(): Long {
         val s = config().settings
-        val trading = MarketClock.isTradingTime(System.currentTimeMillis())
+        val now = System.currentTimeMillis()
+        val trading = watchedMarkets(config()).any { MarketClock.isTradingTime(now, it) }
         var sec = if (trading) s.refreshSec else maxOf(s.refreshSec, s.idleRefreshSec)
         if (!foreground) sec = maxOf(sec, 30)
         // 连续失败时逐步放慢（最多 60 秒），断网期间不空转，也减轻接口压力
@@ -90,9 +93,18 @@ class QuoteRepository(
         return sec * 1000L
     }
 
+    /** 决定刷新频率的市场：正在看的，以及设了提醒、需要及时判断的。 */
+    private fun watchedMarkets(cfg: AppConfig): Set<String> {
+        val everyStock = cfg.settings.speedPct > 0
+        return cfg.stocks.filter { it.enabled && (everyStock || it.hasAlertRule) }
+            .map { StockCodes.market(it.code) }.toSet() + cfg.settings.market
+    }
+
     private fun pollOnce() {
         val cfg = config()
-        val codes = (cfg.stocks.filter { it.enabled }.map { it.code } + INDEX_CODES).distinct()
+        val stocks = cfg.stocks.filter { it.enabled }.map { it.code }
+        val markets = stocks.map(StockCodes::market).toSet() + cfg.settings.market
+        val codes = (stocks + markets.flatMap { indexCodes(it) }).distinct()
         val started = System.currentTimeMillis()
         val list = QuoteApi.quotes(codes, cfg.settings.source)
         list.forEach { quotes[it.code] = it }
@@ -114,8 +126,9 @@ class QuoteRepository(
 
     private fun fetchChartsIfDue(cfg: AppConfig) {
         val now = System.currentTimeMillis()
-        val minuteMaxAge = if (MarketClock.isTradingTime(now)) MINUTE_MAX_AGE_TRADING else MINUTE_MAX_AGE_IDLE
         wantMinute.forEach { code ->
+            val trading = MarketClock.isTradingTime(now, StockCodes.market(code))
+            val minuteMaxAge = if (trading) MINUTE_MAX_AGE_TRADING else MINUTE_MAX_AGE_IDLE
             if (now - (minuteFetchedAt[code] ?: 0) >= minuteMaxAge) {
                 runChart("m:$code") {
                     minutes[code] = QuoteApi.minute(code)
@@ -126,11 +139,14 @@ class QuoteRepository(
         val period = cfg.settings.klinePeriod
         val count = cfg.settings.klineCount
         wantKline.forEach { code ->
+            // 美股的交易所后缀来自腾讯报价；新浪备用时没有，等腾讯恢复后再取
+            val exchange = quotes[code]?.exchange.orEmpty()
+            if (StockCodes.isUs(code) && exchange.isEmpty()) return@forEach
             val cached = klines[code]
             val stale = now - (klineFetchedAt[code] ?: 0) >= KLINE_MAX_AGE
             if (cached == null || cached.period != period || cached.count != count || stale) {
                 runChart("k:$code") {
-                    klines[code] = KLineSet(period, count, QuoteApi.kline(code, period, count))
+                    klines[code] = KLineSet(period, count, QuoteApi.kline(code, exchange, period, count))
                     klineFetchedAt[code] = System.currentTimeMillis()
                 }
             }
@@ -158,7 +174,11 @@ class QuoteRepository(
 
     companion object {
         private const val TAG = "Quote"
-        val INDEX_CODES = listOf("sh000001", "sz399001", "sz399006", "sh000300")
+        private val CN_INDEX_CODES = listOf("sh000001", "sz399001", "sz399006", "sh000300")
+        private val US_INDEX_CODES = listOf("us.DJI", "us.IXIC", "us.INX")
+
+        /** 第一个用来判断当天是否休市。 */
+        fun indexCodes(market: String): List<String> = if (market == Markets.US) US_INDEX_CODES else CN_INDEX_CODES
         private const val MINUTE_MAX_AGE_TRADING = 20_000L
         private const val MINUTE_MAX_AGE_IDLE = 600_000L
         private const val KLINE_MAX_AGE = 300_000L

@@ -5,6 +5,7 @@ import io.github.yixuexiaoao.tvstock.model.AlertEvent
 import io.github.yixuexiaoao.tvstock.model.AppSettings
 import io.github.yixuexiaoao.tvstock.model.Holding
 import io.github.yixuexiaoao.tvstock.model.Quote
+import io.github.yixuexiaoao.tvstock.model.StockCodes
 import io.github.yixuexiaoao.tvstock.model.StockConfig
 
 /**
@@ -34,8 +35,9 @@ class AlertEngine {
         val modes = stock.alertModes ?: settings.alertModes
         if (modes.isEmpty()) return emptyList()
         // 过滤盘后/节假日的旧行情，避免晚上打开 App 时误报
+        val market = StockCodes.market(stock.code)
         val stale = settings.alertTradingOnly &&
-            (!MarketClock.isTradingTime(nowMs) || quote.tradeDate != MarketClock.dateString(nowMs))
+            (!MarketClock.isTradingTime(nowMs, market) || quote.tradeDate != MarketClock.dateString(nowMs, market))
 
         val name = stock.alias.ifBlank { quote.name }
         val price = quote.price
@@ -52,7 +54,7 @@ class AlertEngine {
                 return
             }
             if (stale) return
-            val today = MarketClock.dateString(nowMs)
+            val today = MarketClock.dateString(nowMs, market)
             val sinceLast = nowMs - state.lastFiredMs
             val repeat = settings.alertRepeatMin
             val due = when {

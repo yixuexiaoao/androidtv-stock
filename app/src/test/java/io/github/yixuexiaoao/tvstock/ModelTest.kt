@@ -38,10 +38,76 @@ class ModelTest {
         assertEquals("sz159915", StockCodes.normalize("159915"))
         assertEquals("bj920001", StockCodes.normalize("920001"))
         assertEquals("bj830001", StockCodes.normalize("830001"))
-        assertNull(StockCodes.normalize("abc"))
         assertNull(StockCodes.normalize("60051"))
+        assertNull(StockCodes.normalize("123abc"))
+        assertNull(StockCodes.normalize("苹果"))
+        assertNull(StockCodes.normalize(""))
         assertNull(StockCodes.normalize("hk00700"))
         assertNull(StockCodes.normalize(null))
+    }
+
+    @Test fun normalizeUsCodes() {
+        assertEquals("usAAPL", StockCodes.normalize("AAPL"))
+        assertEquals("usAAPL", StockCodes.normalize(" aapl "))
+        assertEquals("usAAPL", StockCodes.normalize("usAAPL"))
+        assertEquals("usAAPL", StockCodes.normalize("aapl.oq"))
+        assertEquals("usBRK.B", StockCodes.normalize("BRK.B"))
+        assertEquals("usBRK.B", StockCodes.normalize("usBRK.B"))
+        assertEquals("usBRK.B", StockCodes.normalize("brk.b.n"))
+        assertEquals("us.DJI", StockCodes.normalize(".DJI"))
+        assertEquals("us.DJI", StockCodes.normalize("us.DJI"))
+        // 代码本身以 US 开头时不能把它当前缀去掉
+        assertEquals("usUSB", StockCodes.normalize("USB"))
+        assertEquals("usUSB", StockCodes.normalize("usb"))
+        assertEquals("usUSB", StockCodes.normalize("usUSB"))
+    }
+
+    @Test fun usCodeHelpers() {
+        assertTrue(StockCodes.isUs("usAAPL"))
+        assertFalse(StockCodes.isUs("sh600519"))
+        assertEquals("US", StockCodes.market("us.DJI"))
+        assertEquals("CN", StockCodes.market("sz000001"))
+        assertEquals("AAPL", StockCodes.shortCode("usAAPL"))
+        assertEquals("DJI", StockCodes.shortCode("us.DJI"))
+        assertEquals("BRK.B", StockCodes.shortCode("usBRK.B"))
+        assertEquals("600519", StockCodes.shortCode("sh600519"))
+    }
+
+    @Test fun marketSettingIsValidatedAndOldConfigDefaultsToCn() {
+        assertEquals("CN", AppSettings().market)
+        assertEquals("US", AppSettings().merged(JSONObject("""{"market":"US"}""")).market)
+        assertEquals("CN", AppSettings().merged(JSONObject("""{"market":"HK"}""")).market)
+        assertEquals("CN", AppConfig.fromJson(JSONObject("""{"settings":{"layoutId":"4"}}""")).settings.market)
+    }
+
+    @Test fun usMarketClockUsesNewYorkTimeAndDst() {
+        // 2026-11-09 是冬令时：美东 9:30 = 北京 22:30
+        assertFalse(MarketClock.isTradingTime(beijing(2026, 11, 9, 22, 29), "US"))
+        assertTrue(MarketClock.isTradingTime(beijing(2026, 11, 9, 22, 30), "US"))
+        // 2026-07-06 是夏令时：美东 9:30 = 北京 21:30
+        assertFalse(MarketClock.isTradingTime(beijing(2026, 7, 6, 21, 29), "US"))
+        assertTrue(MarketClock.isTradingTime(beijing(2026, 7, 6, 21, 30), "US"))
+        // 北京周二 4:30 仍是美东周一 15:30
+        assertTrue(MarketClock.isTradingTime(beijing(2026, 11, 10, 4, 30), "US"))
+        assertEquals("20261109", MarketClock.dateString(beijing(2026, 11, 10, 4, 30), "US"))
+        // 北京周六 4:00 仍是美东周五盘中；北京周六晚上已是美东周六
+        assertTrue(MarketClock.isTradingTime(beijing(2026, 11, 7, 4, 0), "US"))
+        assertFalse(MarketClock.isTradingTime(beijing(2026, 11, 7, 23, 0), "US"))
+        // 默认仍是 A 股
+        assertTrue(MarketClock.isTradingTime(beijing(2026, 11, 9, 10, 0)))
+    }
+
+    @Test fun usMarketStatus() {
+        val today = "20261109"
+        assertEquals("未开盘", MarketClock.status(beijing(2026, 11, 9, 16, 0), today, "US"))
+        assertEquals("盘前", MarketClock.status(beijing(2026, 11, 9, 22, 0), today, "US"))
+        assertEquals("交易中", MarketClock.status(beijing(2026, 11, 9, 23, 0), today, "US"))
+        assertEquals("盘后", MarketClock.status(beijing(2026, 11, 10, 6, 0), today, "US"))
+        assertEquals("已收盘", MarketClock.status(beijing(2026, 11, 10, 10, 0), today, "US"))
+        assertEquals("休市", MarketClock.status(beijing(2026, 11, 8, 23, 0), today, "US"))
+        // 开盘已过但指数还是旧日期：节假日
+        assertEquals("休市", MarketClock.status(beijing(2026, 11, 9, 23, 0), "20261106", "US"))
+        assertEquals("盘前", MarketClock.status(beijing(2026, 11, 9, 22, 0), "20261106", "US"))
     }
 
     @Test fun onlyCodeIsRequired() {
@@ -51,7 +117,7 @@ class ModelTest {
         assertNull(s.shares)
         assertNull(s.alertModes)
         assertTrue(s.enabled)
-        assertNull(StockConfig.fromJson(JSONObject("""{"code":"xx"}""")))
+        assertNull(StockConfig.fromJson(JSONObject("""{"code":"!!"}""")))
     }
 
     @Test fun blankAndInvalidNumbersBecomeNull() {
