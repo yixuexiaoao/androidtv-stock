@@ -52,11 +52,11 @@ class AlertEngine {
 
         check("TARGET_HIGH", stock.targetHigh, { price >= it }) { "$name 达到目标价 ${fmt.format(it)}，现价 ${fmt.format(price)}" }
         check("TARGET_LOW", stock.targetLow, { price <= it }) { "$name 跌破提醒价 ${fmt.format(it)}，现价 ${fmt.format(price)}" }
-        check("PCT_UP", stock.pctUp, { quote.changePct >= it }) { "$name 涨幅 %.2f%% 超过 %.2f%%".format(quote.changePct, it) }
-        check("PCT_DOWN", stock.pctDown, { quote.changePct <= -it }) { "$name 跌幅 %.2f%% 超过 %.2f%%".format(quote.changePct, it) }
+        check("PCT_UP", stock.pctUp, { quote.changePct >= it }) { name + " 涨幅 %.2f%% 超过 %.2f%%".format(quote.changePct, it) }
+        check("PCT_DOWN", stock.pctDown, { quote.changePct <= -it }) { name + " 跌幅 %.2f%% 超过 %.2f%%".format(quote.changePct, it) }
         holding?.profitPct?.let { pct ->
-            check("PROFIT", stock.profitPct, { pct >= it }) { "$name 持仓盈利 %.2f%% 达到 %.2f%%".format(pct, it) }
-            check("LOSS", stock.lossPct, { pct <= -it }) { "$name 持仓亏损 %.2f%% 达到 %.2f%%".format(pct, it) }
+            check("PROFIT", stock.profitPct, { pct >= it }) { name + " 持仓盈利 %.2f%% 达到 %.2f%%".format(pct, it) }
+            check("LOSS", stock.lossPct, { pct <= -it }) { name + " 持仓亏损 %.2f%% 达到 %.2f%%".format(pct, it) }
         }
         return events
     }

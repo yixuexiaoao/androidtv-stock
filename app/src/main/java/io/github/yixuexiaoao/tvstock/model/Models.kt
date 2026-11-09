@@ -167,6 +167,7 @@ data class AppSettings(
     val theme: String = "DARK",
     val colorScheme: String = "RED_UP",
     val gridGap: Int = 6,
+    val screenMargin: Int = 0,
     val showHeader: Boolean = true,
     val showIndices: Boolean = true,
     val showClock: Boolean = true,
@@ -206,6 +207,7 @@ data class AppSettings(
         put("theme", theme)
         put("colorScheme", colorScheme)
         put("gridGap", gridGap)
+        put("screenMargin", screenMargin)
         put("showHeader", showHeader)
         put("showIndices", showIndices)
         put("showClock", showClock)
@@ -252,6 +254,7 @@ data class AppSettings(
             theme = choice("theme", theme, Themes.ALL),
             colorScheme = choice("colorScheme", colorScheme, listOf("RED_UP", "GREEN_UP")),
             gridGap = int("gridGap", gridGap, 0, 32),
+            screenMargin = int("screenMargin", screenMargin, 0, 64),
             showHeader = bool("showHeader", showHeader),
             showIndices = bool("showIndices", showIndices),
             showClock = bool("showClock", showClock),

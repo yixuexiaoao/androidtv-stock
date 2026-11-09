@@ -33,6 +33,8 @@ class QuoteRepository(
     private val inFlight = ConcurrentHashMap.newKeySet<String>()
 
     @Volatile var foreground = false
+    /** Web 服务运行时允许后台轮询；服务和界面都不在时停止访问网络。 */
+    @Volatile var backgroundAllowed = false
     @Volatile var lastSuccessMs = 0L
         private set
     @Volatile var lastError: String? = null
@@ -61,7 +63,7 @@ class QuoteRepository(
     private fun loop() {
         wakePending.set(false)
         try {
-            pollOnce()
+            if (foreground || backgroundAllowed) pollOnce()
         } catch (t: Throwable) {
             lastError = t.message ?: t.javaClass.simpleName
         }

@@ -97,9 +97,14 @@ class TickerView(context: Context) : View(context) {
     private val tick = object : Runnable {
         override fun run() {
             if (!running) return
-            offset += height * SPEED_FACTOR
-            invalidate()
-            postDelayed(this, FRAME_MS)
+            // 不可见时只保持低频检查，不累加偏移，也不重绘
+            if (isShown) {
+                offset += height * SPEED_FACTOR
+                invalidate()
+                postDelayed(this, FRAME_MS)
+            } else {
+                postDelayed(this, IDLE_MS)
+            }
         }
     }
 
@@ -129,7 +134,7 @@ class TickerView(context: Context) : View(context) {
         if (items.isEmpty()) return
         val total = items.sumOf { (paint.measureText(it.first) + gap).toDouble() }.toFloat()
         if (total <= 0) return
-        if (offset > total) offset -= total
+        offset %= total
         var x = -offset
         while (x < width) {
             for ((text, change) in items) {
@@ -142,6 +147,7 @@ class TickerView(context: Context) : View(context) {
 
     private companion object {
         const val FRAME_MS = 50L
+        const val IDLE_MS = 1000L
         const val SPEED_FACTOR = 0.06f
     }
 }

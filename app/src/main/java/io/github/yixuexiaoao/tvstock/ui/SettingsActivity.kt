@@ -65,11 +65,16 @@ class SettingsActivity : Activity() {
         return values[Math.floorMod(index + delta, values.size)]
     }
 
+    /** Web 后台可能设置了不在候选列表里的值，这里走向相邻的候选值，到头后回绕。 */
+    private fun steppedNumber(values: List<Int>, current: Int, delta: Int): Int =
+        if (delta > 0) values.firstOrNull { it > current } ?: values.first()
+        else values.lastOrNull { it < current } ?: values.last()
+
     private fun choice(label: String, values: List<String>, current: () -> String, name: (String) -> String, key: String): Row =
         Row(label, { name(current()) }, { d -> put(key, stepped(values, current(), d)) })
 
     private fun number(label: String, values: List<Int>, current: () -> Int, unit: String, key: String, zero: String? = null): Row =
-        Row(label, { if (current() == 0 && zero != null) zero else "${current()}$unit" }, { d -> put(key, stepped(values, current(), d)) })
+        Row(label, { if (current() == 0 && zero != null) zero else "${current()}$unit" }, { d -> put(key, steppedNumber(values, current(), d)) })
 
     private fun toggle(label: String, current: () -> Boolean, key: String): Row =
         Row(label, { if (current()) "开" else "关" }, { _ -> put(key, !current()) })
@@ -86,7 +91,7 @@ class SettingsActivity : Activity() {
     private fun sections(): List<Pair<String, List<Row>>> {
         val s = settings
         val layoutIds = Layouts.ALL.map { it.id } + (if (s.customLayout != null) listOf(Layouts.CUSTOM_ID) else emptyList())
-        val stockRows = AppCore.config.stocks.mapIndexed { index, stock -> stockRow(index, stock) } +
+        val stockRows = AppCore.config.stocks.map { stockRow(it) } +
             Row("＋ 添加股票", { "输入 6 位代码" }, onOk = ::addStockDialog)
         return listOf(
             "显示" to listOf(
@@ -97,6 +102,7 @@ class SettingsActivity : Activity() {
                 choice("主题", Themes.ALL, { settings.theme }, Themes::label, "theme"),
                 choice("涨跌颜色", listOf("RED_UP", "GREEN_UP"), { settings.colorScheme }, { if (it == "RED_UP") "红涨绿跌" else "绿涨红跌" }, "colorScheme"),
                 number("窗口间距", listOf(0, 2, 4, 6, 8, 12, 16), { settings.gridGap }, "px", "gridGap"),
+                number("屏幕边距（画面被裁切时调大）", listOf(0, 8, 16, 24, 32, 48, 64), { settings.screenMargin }, "dp", "screenMargin"),
                 number("自动翻页", listOf(0, 5, 10, 15, 30, 60, 120, 300), { settings.pageIntervalSec }, "秒", "pageIntervalSec", "关闭"),
                 toggle("顶部状态栏", { settings.showHeader }, "showHeader"),
                 toggle("大盘指数", { settings.showIndices }, "showIndices"),
@@ -141,7 +147,7 @@ class SettingsActivity : Activity() {
         )
     }
 
-    private fun stockRow(index: Int, stock: StockConfig): Row {
+    private fun stockRow(stock: StockConfig): Row {
         val name = stock.alias.ifBlank { AppCore.repo.quotes[stock.code]?.name ?: "" }
         return Row("$name ${StockCodes.shortCode(stock.code)}", {
             buildList {
@@ -150,7 +156,7 @@ class SettingsActivity : Activity() {
                 stock.targetLow?.let { add("下破 $it") }
                 stock.shares?.let { add("${it}股") }
             }.joinToString("  ").ifEmpty { "仅监控" }
-        }, onOk = { stockMenu(index, stock) })
+        }, onOk = { stockMenu(stock) })
     }
 
     private fun rebuild(focusIndex: Int) {
@@ -265,19 +271,21 @@ class SettingsActivity : Activity() {
             .show()
     }
 
-    private fun stockMenu(index: Int, stock: StockConfig) {
+    private fun stockMenu(stock: StockConfig) {
         val toggleLabel = if (stock.enabled) "停用" else "启用"
         val items = arrayOf("设置目标价与持仓", "上移", "下移", toggleLabel, "删除")
         dialog().setItems(items) { _, which ->
+            // 列表可能已被 Web 后台修改，按代码重新定位
             val codes = AppCore.config.stocks.map { it.code }.toMutableList()
+            val at = codes.indexOf(stock.code)
             when (which) {
                 0 -> stockForm(stock)
-                1 -> if (index > 0) {
-                    codes.add(index - 1, codes.removeAt(index))
+                1 -> if (at > 0) {
+                    codes.add(at - 1, codes.removeAt(at))
                     AppCore.reorder(codes)
                 }
-                2 -> if (index < codes.size - 1) {
-                    codes.add(index + 1, codes.removeAt(index))
+                2 -> if (at in 0 until codes.size - 1) {
+                    codes.add(at + 1, codes.removeAt(at))
                     AppCore.reorder(codes)
                 }
                 3 -> AppCore.upsertStock(stock.copy(enabled = !stock.enabled))

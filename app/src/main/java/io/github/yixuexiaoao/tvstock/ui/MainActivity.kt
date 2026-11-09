@@ -67,7 +67,8 @@ class MainActivity : Activity(), AppCore.Listener {
 
     private val clockTick = object : Runnable {
         override fun run() {
-            header.invalidate()
+            // 每秒刷新：时钟、网络异常提示、后台地址都从这里更新
+            refreshHeader()
             maybeAutoPage()
             handler.postDelayed(this, 1000)
         }
@@ -166,6 +167,7 @@ class MainActivity : Activity(), AppCore.Listener {
         super.onStart()
         AppCore.addListener(this)
         AppCore.repo.foreground = true
+        lastPageFlipMs = System.currentTimeMillis()
         applyConfig()
         renderAlerts()
         if (AppCore.activeAlerts.isNotEmpty()) startFlash()
@@ -191,6 +193,8 @@ class MainActivity : Activity(), AppCore.Listener {
         val s = config.settings
         val palette = Palette.of(s)
         root.setBackgroundColor(palette.background)
+        val margin = dp(s.screenMargin)
+        content.setPadding(margin, margin, margin, margin)
         grid.setBackgroundColor(palette.background)
 
         header.config = config
@@ -306,8 +310,12 @@ class MainActivity : Activity(), AppCore.Listener {
             cell.isFocusable = stock != null
             cell.invalidate()
         }
-        AppCore.repo.wantMinute = minuteWanted
-        AppCore.repo.wantKline = klineWanted
+        val repo = AppCore.repo
+        val chartsChanged = repo.wantMinute != minuteWanted || repo.wantKline != klineWanted
+        repo.wantMinute = minuteWanted
+        repo.wantKline = klineWanted
+        // 新出现的股票要立刻取图表，否则非交易时段可能空白很久
+        if (chartsChanged) repo.wake()
     }
 
     private fun refreshHeader() {
@@ -343,7 +351,15 @@ class MainActivity : Activity(), AppCore.Listener {
 
     override fun onAlert(event: AlertEvent) {
         if (event.modes.contains(AlertModes.SOUND)) playAlertSound()
-        if (config.settings.alertJumpPage && zoomCode == null && event.modes.contains(AlertModes.CELL)) {
+        val zoomed = zoomCode
+        if (config.settings.alertJumpPage && zoomed != null && zoomed != event.code && event.modes.contains(AlertModes.CELL)) {
+            // 放大其他股票时窗口闪烁看不到，切到到价的股票
+            if (enabledStocks().any { it.code == event.code }) {
+                zoomCode = event.code
+                zoomMode = ""
+                bindCells()
+            }
+        } else if (config.settings.alertJumpPage && zoomed == null && event.modes.contains(AlertModes.CELL)) {
             val index = enabledStocks().indexOfFirst { it.code == event.code }
             if (index >= 0 && cells.isNotEmpty()) {
                 val target = index / cells.size

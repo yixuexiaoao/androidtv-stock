@@ -8,7 +8,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import io.github.yixuexiaoao.tvstock.AppCore
 import io.github.yixuexiaoao.tvstock.R
 import java.io.IOException
@@ -18,6 +20,15 @@ class WebService : Service(), AppCore.Listener {
     private var server: WebServer? = null
     private var boundPort = 0
     private var pendingPort = 0
+    private val handler = Handler(Looper.getMainLooper())
+
+    /** 电视可能晚于 App 联网，或者 DHCP 更换地址，所以定时刷新后台地址。 */
+    private val addressTick = object : Runnable {
+        override fun run() {
+            publishAddress()
+            handler.postDelayed(this, ADDRESS_REFRESH_MS)
+        }
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -26,7 +37,9 @@ class WebService : Service(), AppCore.Listener {
         goForeground("正在启动 Web 后台…")
         AppCore.addListener(this)
         restartServer()
+        AppCore.repo.backgroundAllowed = true
         AppCore.repo.start()
+        handler.postDelayed(addressTick, ADDRESS_REFRESH_MS)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
@@ -53,8 +66,13 @@ class WebService : Service(), AppCore.Listener {
                 continue
             }
         }
+        publishAddress(force = true)
+    }
+
+    private fun publishAddress(force: Boolean = false) {
         val ip = WebServer.lanAddress() ?: "127.0.0.1"
         val url = if (server != null) "http://$ip:$boundPort" else ""
+        if (!force && url == AppCore.webUrl) return
         AppCore.webUrl = url
         goForeground(if (url.isEmpty()) "Web 后台启动失败：端口被占用" else "Web 后台：$url")
     }
@@ -92,6 +110,8 @@ class WebService : Service(), AppCore.Listener {
     }
 
     override fun onDestroy() {
+        handler.removeCallbacks(addressTick)
+        AppCore.repo.backgroundAllowed = false
         AppCore.removeListener(this)
         server?.stop()
         server = null
@@ -104,6 +124,7 @@ class WebService : Service(), AppCore.Listener {
         private const val CHANNEL_ID = "web_service"
         private const val PORT_TRIES = 10
         private const val SOCKET_TIMEOUT_MS = 15_000
+        private const val ADDRESS_REFRESH_MS = 15_000L
 
         fun start(context: Context) {
             val intent = Intent(context, WebService::class.java)

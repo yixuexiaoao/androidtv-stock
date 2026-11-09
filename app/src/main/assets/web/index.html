@@ -171,6 +171,10 @@ async function saveSettings(patch) {
   try {
     await api('/api/settings', patch);
     Object.assign(state.settings, patch);
+    if ('webPin' in patch) {
+      pin = patch.webPin;
+      try { localStorage.setItem('pin', pin); } catch (e) {}
+    }
     toast('已保存，电视已同步');
   } catch (e) { toast(e.message); }
 }
@@ -211,6 +215,7 @@ const FORMS = () => ({
       ['theme', 'select', '主题', meta.themes],
       ['colorScheme', 'select', '涨跌颜色', [{value:'RED_UP',label:'红涨绿跌'},{value:'GREEN_UP',label:'绿涨红跌'}]],
       ['gridGap', 'number', '窗口间距（像素）', {min:0,max:32}],
+      ['screenMargin', 'number', '屏幕边距（dp，画面被电视裁切时调大）', {min:0,max:64}],
       ['pageIntervalSec', 'number', '自动翻页（秒，0 为关闭）', {min:0,max:3600}],
       ['showHeader', 'check', '顶部状态栏'],
       ['showIndices', 'check', '状态栏显示大盘指数'],

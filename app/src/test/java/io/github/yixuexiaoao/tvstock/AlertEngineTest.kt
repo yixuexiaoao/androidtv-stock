@@ -60,6 +60,14 @@ class AlertEngineTest {
         assertTrue(AlertEngine().evaluate(noShares, quote(120.0), settings, trading).isEmpty())
     }
 
+    @Test fun aliasWithPercentSignDoesNotBreakFormatting() {
+        val s = StockConfig("sh600519", alias = "涨5%d", pctUp = 5.0, pctDown = 3.0, shares = 1, costPrice = 100.0, profitPct = 1.0, lossPct = 1.0)
+        val up = AlertEngine().evaluate(s, quote(110.0), settings, trading)
+        assertEquals(2, up.size)
+        assertTrue(up[0].message.startsWith("涨5%d "))
+        assertEquals(2, AlertEngine().evaluate(s, quote(90.0), settings, trading).size)
+    }
+
     @Test fun plainStockNeverAlerts() {
         assertTrue(AlertEngine().evaluate(StockConfig("sh600519"), quote(999.0), settings, trading).isEmpty())
     }

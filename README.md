@@ -51,7 +51,7 @@
 通过 adb 安装：
 
 ```bash
-adb install -r androidtv-stock-0.1.0-arm64-v8a-release.apk
+adb install -r androidtv-stock-0.1.1-arm64-v8a-release.apk
 ```
 
 本 App 是纯 Kotlin 实现，不含原生库，所以 v7、v8 两个包的代码相同，只是按架构分别打包。
