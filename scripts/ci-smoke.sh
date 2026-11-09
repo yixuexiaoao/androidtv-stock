@@ -11,10 +11,42 @@ OUT=smoke
 FAILED=0
 PORT=""
 mkdir -p "$OUT"
+REAL_ADB=$(command -v adb)
 
-fail() { echo "::error::冒烟测试失败：$*"; FAILED=1; }
-pass() { echo "通过：$*"; }
-shot() { adb exec-out screencap -p > "$OUT/$1.png"; echo "截图：$1"; }
+# 进度带耗时并写入文件：即使中途卡住被杀，也能看出停在哪一步
+note() { echo "[$(printf '%4d' "$SECONDS")s] $*" | tee -a "$OUT/progress.txt" >&2; }
+
+# adb 偶尔会在模拟器上卡死且不会自己退出，每条命令都限时
+adb() {
+  local limit=45 code
+  [ "${1:-}" = "install" ] && limit=150
+  timeout "$limit" "$REAL_ADB" "$@"
+  code=$?
+  [ "$code" = "124" ] && note "adb $1 超时（${limit} 秒）"
+  return "$code"
+}
+
+finish() {
+  trap - EXIT TERM
+  note "脚本结束"
+  adb logcat -d -t 400 > "$OUT/logcat.txt" 2>&1 || true
+  adb logcat -d -b crash > "$OUT/crash.txt" 2>&1 || true
+}
+trap finish EXIT
+trap 'echo "::error::冒烟测试整体超时"; note "整体超时"; exit 124' TERM
+
+install_apk() {
+  note "安装 $1"
+  adb install -r "$1" && return 0
+  note "安装失败，等待设备后重试"
+  adb wait-for-device
+  sleep 5
+  adb install -r "$1"
+}
+
+fail() { echo "::error::冒烟测试失败：$*"; note "失败：$*"; FAILED=1; }
+pass() { note "通过：$*"; }
+shot() { adb exec-out screencap -p > "$OUT/$1.png"; note "截图：$1"; }
 key() { adb shell input keyevent "$@"; sleep 1; }
 launch() { adb shell am start -W -n "$PKG/.ui.MainActivity" > /dev/null; sleep "${1:-6}"; }
 
@@ -43,8 +75,8 @@ json() { python3 -c "import json,sys; d=json.load(sys.stdin); print($1)"; }
 web_up() { curl -fsS -m 5 "http://127.0.0.1:$PORT/api/meta" > /dev/null 2>&1; }
 
 wait_update_state() {
-  local want="$1" state=""
-  for _ in $(seq 1 30); do
+  local want="$1" state="" deadline=$((SECONDS + 120))
+  while [ "$SECONDS" -lt "$deadline" ]; do
     state=$(get /api/state 2> /dev/null | json "d['status']['update']['state']" 2> /dev/null)
     case " $want " in *" $state "*) [ -n "$state" ] && { echo "$state"; return 0; } ;; esac
     # 调起安装器或授权页后 App 退到后台，Web 服务随之关闭；回到 App 再查
@@ -55,14 +87,25 @@ wait_update_state() {
   return 1
 }
 
+# 模拟器刚启动时网络可能还没好，失败时重试，避免把下载验证跳过去
+check_update() {
+  local state="" attempt
+  for attempt in 1 2 3; do
+    state=$(check_update)
+    [ "$state" != "ERROR" ] && break
+    note "检查更新第 $attempt 次出错"
+    sleep 10
+  done
+  echo "$state"
+}
+
 # ---------- 下载链路：用当前代码的低版本构建，真实下载一个已发布版本 ----------
 if [ -n "$PROBE_APK" ] && [ -f "$PROBE_APK" ]; then
-  adb install -r "$PROBE_APK" || fail "低版本构建安装失败"
+  install_apk "$PROBE_APK" || fail "低版本构建安装失败"
   launch
   if find_port; then
     post /api/settings '{"updateChannel":"STABLE"}' > /dev/null
-    post /api/update/check '{}' > /dev/null
-    state=$(wait_update_state "AVAILABLE UP_TO_DATE ERROR")
+    state=$(check_update)
     echo "低版本构建检查更新结果：$state"
     if [ "$state" = "AVAILABLE" ]; then
       post /api/update/install '{}' > /dev/null
@@ -93,15 +136,14 @@ fi
 
 # ---------- 升级路径：先装上一个已发布版本，走一遍真实的检查更新和下载 ----------
 if [ -n "$OLD_APK" ] && [ -f "$OLD_APK" ]; then
-  adb install -r "$OLD_APK" || fail "旧版本安装失败"
+  install_apk "$OLD_APK" || fail "旧版本安装失败"
   launch
   if find_port; then
     OLD_VERSION=$(get /api/state | json "d['status']['version']")
     pass "旧版本 $OLD_VERSION 运行在端口 $PORT"
     post /api/stocks '{"code":"600519","costPrice":1400,"shares":100,"targetHigh":99999}' > /dev/null
     post /api/settings '{"updateChannel":"PRE"}' > /dev/null
-    post /api/update/check '{}' > /dev/null
-    state=$(wait_update_state "AVAILABLE UP_TO_DATE ERROR")
+    state=$(check_update)
     echo "旧版本检查更新结果：$state"
     if [ "$state" = "AVAILABLE" ]; then
       post /api/update/install '{}' > /dev/null
@@ -122,7 +164,7 @@ if [ -n "$OLD_APK" ] && [ -f "$OLD_APK" ]; then
 fi
 
 # ---------- 安装新版本（覆盖安装，验证配置迁移）----------
-adb install -r "$NEW_APK" || { fail "新版本安装失败"; exit 1; }
+install_apk "$NEW_APK" || { fail "新版本安装失败"; exit 1; }
 launch 8
 shot 01-first-run-guide
 find_port || { fail "Web 服务不可访问"; adb logcat -d -b crash; exit 1; }
@@ -305,7 +347,6 @@ SERVICES=$(adb shell dumpsys activity services "$PKG" | grep -c ServiceRecord ||
 [ "$SERVICES" = "0" ] && pass "没有常驻服务" || fail "仍有 $SERVICES 个服务在运行"
 CRASH=$(adb logcat -d -b crash | grep -c "$PKG" || true)
 [ "$CRASH" = "0" ] && pass "没有崩溃" || { fail "检测到崩溃"; adb logcat -d -b crash | tail -n 60; }
-adb logcat -d -t 400 > "$OUT/logcat.txt" 2>&1 || true
 
 [ "$FAILED" = "0" ] && echo "冒烟测试全部通过" || echo "冒烟测试有失败项"
 exit "$FAILED"

@@ -5,6 +5,8 @@ name: Build APK
 on:
   push:
     branches: [main]
+    # 只改文档不用重新构建；这个过滤只对分支生效，打标签仍会完整构建
+    paths-ignore: ["**.md"]
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
@@ -78,7 +80,7 @@ jobs:
         run: |
           set -o pipefail
           chmod +x gradlew
-          ./gradlew --no-daemon --stacktrace testDebugUnitTest assembleRelease 2>&1 | tee build.log
+          ./gradlew --stacktrace testDebugUnitTest assembleRelease 2>&1 | tee build.log
 
       - name: Report build errors as annotations
         if: failure()
@@ -128,7 +130,7 @@ jobs:
           STOCK_KEYSTORE_PASSWORD: ${{ secrets.STOCK_KEYSTORE_PASSWORD }}
           STOCK_KEY_ALIAS: ${{ secrets.STOCK_KEY_ALIAS }}
           STOCK_KEY_PASSWORD: ${{ secrets.STOCK_KEY_PASSWORD }}
-        run: ./gradlew --no-daemon --stacktrace assembleRelease
+        run: ./gradlew --stacktrace assembleRelease
 
       - uses: actions/upload-artifact@v5
         with:
@@ -147,7 +149,7 @@ jobs:
     # 在 Android TV 模拟器上跑真实流程；通过后才能发布
     needs: build
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 18
     permissions:
       contents: write
     steps:
@@ -178,6 +180,29 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      # 缓存模拟器快照，不用每次冷启动
+      - name: Cache emulator snapshot
+        uses: actions/cache@v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-api30-android-tv-x86-tv_1080p-v1
+
+      - name: Create emulator snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: android-tv
+          arch: x86
+          profile: tv_1080p
+          force-avd-creation: false
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: echo "快照已生成"
+
       - name: Smoke test on Android TV emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -185,10 +210,11 @@ jobs:
           target: android-tv
           arch: x86
           profile: tv_1080p
-          force-avd-creation: true
+          force-avd-creation: false
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
-          script: bash scripts/ci-smoke.sh "$(ls new-apk/*.apk | head -1)" old-apk/old.apk "$(ls probe-apk/*.apk | head -1)"
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          # 整体限时，卡住时也能留出时间上传截图和日志
+          script: timeout 720 bash scripts/ci-smoke.sh "$(ls new-apk/*.apk | head -1)" old-apk/old.apk "$(ls probe-apk/*.apk | head -1)"
 
       - uses: actions/upload-artifact@v5
         if: always()
