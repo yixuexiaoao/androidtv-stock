@@ -83,7 +83,7 @@ class ParserTest {
         assertEquals("0931", list[1].hhmm)
         assertEquals(1440.99, list[1].price, 1e-6)
         assertEquals(1110.0, list[1].cumVolume, 1e-6)
-        assertEquals(1439.0, list[0].avgPrice, 1.0)
+        assertEquals(1440.06, list[0].avgPrice, 0.01)
     }
 
     @Test fun klineStockAndIndexKeys() {

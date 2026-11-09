@@ -596,7 +596,13 @@ function renderStatus() {
 }
 
 async function refresh() {
+  const before = state && JSON.stringify(state.settings);
   state = await api('/api/state');
+  // 设置可能在电视端被修改；用户正在输入时不打断
+  if (before && before !== JSON.stringify(state.settings) && !document.activeElement.matches('input,select')) {
+    renderForms();
+    renderLayouts();
+  }
   renderStocks();
   renderAlertLog();
   renderStatus();
