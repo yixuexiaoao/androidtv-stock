@@ -171,7 +171,7 @@ class MainActivity : Activity(), AppCore.Listener {
         val keep = when (config.settings.keepScreen) {
             "ALWAYS" -> true
             "NEVER" -> false
-            else -> MarketClock.isTradingTime(System.currentTimeMillis())
+            else -> MarketClock.isKeepAwakeTime(System.currentTimeMillis())
         }
         if (keep == screenKept) return
         screenKept = keep
@@ -198,9 +198,11 @@ class MainActivity : Activity(), AppCore.Listener {
         renderAlerts()
         if (AppCore.activeAlerts.isNotEmpty()) startFlash()
         if (!config.settings.guideShown) {
-            // 先记下已显示，避免配置刷新或返回界面时重复弹出
-            AppCore.updateSettings(JSONObject().put("guideShown", true))
-            handler.postDelayed({ if (!isFinishing) StockDialogs.help(this) }, GUIDE_DELAY_MS)
+            // 真正弹出时才记为已显示；延迟期间离开界面，下次回来再弹
+            handler.postDelayed({
+                AppCore.updateSettings(JSONObject().put("guideShown", true))
+                StockDialogs.help(this)
+            }, GUIDE_DELAY_MS)
         }
         AppCore.repo.wake()
         onUpdate()

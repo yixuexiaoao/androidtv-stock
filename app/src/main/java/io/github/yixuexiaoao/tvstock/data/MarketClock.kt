@@ -18,6 +18,13 @@ object MarketClock {
         return minute in (9 * 60 + 15)..(11 * 60 + 31) || minute in (12 * 60 + 59)..(15 * 60 + 1)
     }
 
+    /** 工作日 9:00-15:10 保持亮屏，午休也不例外：屏保启动后界面被停止，下午开盘不会自动回来。 */
+    fun isKeepAwakeTime(ms: Long): Boolean {
+        val weekday = calendar(ms).get(Calendar.DAY_OF_WEEK)
+        if (weekday == Calendar.SATURDAY || weekday == Calendar.SUNDAY) return false
+        return minuteOfDay(ms) in (9 * 60)..(15 * 60 + 10)
+    }
+
     /** 盘面状态文字。lastTradeDate 为最新行情日期，用来识别节假日休市。 */
     fun status(ms: Long, lastTradeDate: String?): String {
         val c = calendar(ms)

@@ -201,7 +201,7 @@ object StockDialogs {
     }
 
     /** 遥控器帮助，首次启动时也会显示。 */
-    fun help(activity: Activity, onClose: (() -> Unit)? = null) {
+    fun help(activity: Activity) {
         val url = AppCore.webUrl
         val box = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -218,13 +218,11 @@ object StockDialogs {
                 setPadding(pad, 0, 0, 0)
             })
         }
-        val dialog = builder(activity)
+        builder(activity)
             .setTitle("使用帮助")
             .setView(box)
             .setPositiveButton("知道了", null)
-            .create()
-        dialog.setOnDismissListener { onClose?.invoke() }
-        dialog.show()
+            .show()
     }
 
     fun recentAlerts(activity: Activity) {
@@ -237,7 +235,7 @@ object StockDialogs {
 
     private const val HELP_TEXT = "方向键：移动焦点，左右到边缘时翻页\n" +
         "确认键：放大或还原当前股票\n" +
-        "长按确认键：快捷菜单（加仓、提醒、静音等）\n" +
+        "长按确认键：快捷菜单（加仓、提醒等）\n" +
         "数字键：切换画面数，0 切换图文\n" +
         "频道键：翻页；菜单键：设置\n" +
         "红键静音，绿键隐私，黄键排序，蓝键布局"

@@ -89,7 +89,7 @@ find_port || { fail "Web 服务不可访问"; adb logcat -d -b crash; exit 1; }
 
 STATE=$(get /api/state)
 echo "$STATE" | json "d['status']['version']"
-if [ -n "$OLD_APK" ]; then
+if [ -n "$OLD_APK" ] && [ -f "$OLD_APK" ]; then
   COST=$(echo "$STATE" | json "[s.get('costPrice') for s in d['stocks'] if s['code']=='sh600519'][0]")
   num_eq "$COST" 1400 && pass "升级后持仓保留" || fail "升级后持仓丢失：$COST"
 fi

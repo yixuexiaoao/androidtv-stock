@@ -240,6 +240,15 @@ class ModelTest {
             set(y, mo - 1, d, h, mi)
         }.timeInMillis
 
+    @Test fun keepAwakeCoversLunchBreak() {
+        assertTrue(MarketClock.isKeepAwakeTime(beijing(2026, 11, 9, 12, 0)))
+        assertTrue(MarketClock.isKeepAwakeTime(beijing(2026, 11, 9, 9, 0)))
+        assertTrue(MarketClock.isKeepAwakeTime(beijing(2026, 11, 9, 15, 10)))
+        assertFalse(MarketClock.isKeepAwakeTime(beijing(2026, 11, 9, 8, 59)))
+        assertFalse(MarketClock.isKeepAwakeTime(beijing(2026, 11, 9, 20, 0)))
+        assertFalse(MarketClock.isKeepAwakeTime(beijing(2026, 11, 7, 10, 0)))
+    }
+
     @Test fun marketStatus() {
         val today = "20261109"
         assertEquals("未开盘", MarketClock.status(beijing(2026, 11, 9, 9, 0), today))

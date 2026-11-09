@@ -157,7 +157,7 @@ class SettingsActivity : Activity(), AppCore.Listener {
                 toggle("隐私模式（隐藏持仓金额）", { settings.privacy }, "privacy"),
                 toggle("价格跳动闪烁", { settings.priceTickFlash }, "priceTickFlash"),
                 toggle("防烧屏微移", { settings.burnInGuard }, "burnInGuard"),
-                choice("保持亮屏", listOf("TRADING", "ALWAYS", "NEVER"), { settings.keepScreen }, { mapOf("TRADING" to "仅交易时段", "ALWAYS" to "一直", "NEVER" to "跟随系统")[it] ?: it }, "keepScreen"),
+                choice("保持亮屏", listOf("TRADING", "ALWAYS", "NEVER"), { settings.keepScreen }, { mapOf("TRADING" to "工作日盘中（含午休）", "ALWAYS" to "一直", "NEVER" to "跟随系统")[it] ?: it }, "keepScreen"),
             ),
             "刷新" to listOf(
                 number("交易时段刷新", listOf(1, 2, 3, 5, 10, 15, 30, 60, 120, 300), { settings.refreshSec }, "秒", "refreshSec"),
