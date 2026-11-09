@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- 优先 HTTPS；老旧电视根证书或系统时间异常时，行情接口回退 HTTP -->
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">gtimg.cn</domain>
+        <domain includeSubdomains="true">sinajs.cn</domain>
+    </domain-config>
+</network-security-config>

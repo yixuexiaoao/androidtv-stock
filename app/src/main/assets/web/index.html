@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A股看盘TV 后台</title>
+<style>
+:root{--bg:#0b0f14;--card:#141a22;--line:#2a3442;--text:#e8edf3;--sub:#94a3b8;--accent:#4fc3f7;--up:#ff4d4f;--down:#22c55e;--warn:#ffb020}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:12px 16px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+h1{font-size:17px;margin:0}
+.status{color:var(--sub);font-size:12px}
+.status.err{color:var(--up)}
+nav{display:flex;gap:4px;padding:8px 16px;overflow-x:auto;border-bottom:1px solid var(--line)}
+nav button{background:none;border:0;color:var(--sub);padding:7px 14px;border-radius:6px;cursor:pointer;font-size:14px;white-space:nowrap}
+nav button.on{background:var(--accent);color:#04202e;font-weight:600}
+main{padding:16px;max-width:1280px;margin:auto}
+section{display:none}
+section.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:14px}
+.card h2{font-size:15px;margin:0 0 12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px 18px}
+label.field{display:flex;flex-direction:column;gap:4px;color:var(--sub);font-size:13px}
+label.check{display:flex;gap:8px;align-items:center;font-size:14px;cursor:pointer}
+input,select,textarea{background:#0e141b;border:1px solid var(--line);color:var(--text);border-radius:6px;padding:7px 9px;font-size:14px;width:100%}
+input[type=checkbox]{width:16px;height:16px;flex:none}
+input[type=color]{padding:2px;height:34px}
+input:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px}
+button.btn{background:#22303f;border:1px solid var(--line);color:var(--text);border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px;white-space:nowrap}
+button.btn:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:#04202e;border-color:var(--accent);font-weight:600}
+button.danger{color:var(--up)}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:820px}
+th,td{padding:8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{color:var(--sub);font-weight:500;font-size:12px}
+th:first-child,td:first-child{text-align:left}
+td.ops{display:flex;gap:4px;justify-content:flex-end}
+.up{color:var(--up)}.down{color:var(--down)}.muted{color:var(--sub)}
+.addbar{position:relative;display:flex;gap:8px;margin-bottom:12px;max-width:520px}
+.hits{position:absolute;top:38px;left:0;right:0;background:#0e141b;border:1px solid var(--line);border-radius:6px;z-index:6;max-height:280px;overflow:auto}
+.hits div{padding:8px 10px;cursor:pointer}
+.hits div:hover{background:#22303f}
+.summary{display:flex;flex-wrap:wrap;gap:20px;margin-bottom:12px}
+.summary b{display:block;font-size:18px}
+.layouts{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+.layout{background:#0e141b;border:2px solid var(--line);border-radius:8px;padding:8px;cursor:pointer;text-align:center;font-size:12px;color:var(--sub)}
+.layout.on{border-color:var(--accent);color:var(--text)}
+.preview{display:grid;gap:2px;aspect-ratio:16/9;margin-bottom:6px;width:100%}
+.preview i{background:#2c3e50;display:block;border-radius:1px}
+.editor{display:grid;gap:3px;aspect-ratio:16/9;max-width:640px;background:#0e141b;padding:3px;border-radius:6px;user-select:none;touch-action:none;margin:10px 0}
+.editor span{background:#1c2733;border-radius:2px;cursor:crosshair}
+.editor span.sel{background:var(--accent)}
+.editor b{background:#2f6f8f;border-radius:3px;display:flex;align-items:center;justify-content:center;font-weight:600;cursor:pointer;z-index:1}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row label{max-width:120px}
+.hint{color:var(--sub);font-size:12px;margin:6px 0 0}
+dialog{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:12px;width:min(760px,94vw);padding:18px}
+dialog::backdrop{background:#000a}
+dialog h2{margin:0 0 12px;font-size:16px}
+dialog h3{margin:16px 0 8px;font-size:13px;color:var(--accent)}
+.actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#22303f;border:1px solid var(--line);padding:8px 16px;border-radius:8px;opacity:0;transition:.2s;pointer-events:none;z-index:20}
+#toast.show{opacity:1}
+.alertrow{padding:8px 0;border-bottom:1px solid var(--line)}
+</style>
+</head>
+<body>
+<header>
+  <h1>A股看盘TV 后台</h1>
+  <span class="status" id="status">连接中…</span>
+</header>
+<nav id="tabs"></nav>
+<main>
+  <section id="tab-stocks">
+    <div class="card">
+      <h2>自选股</h2>
+      <div class="summary" id="summary"></div>
+      <div class="addbar">
+        <input id="search" placeholder="输入代码、名称或拼音，如 600519 / 茅台 / gzmt" autocomplete="off">
+        <button class="btn primary" id="addBtn">添加</button>
+        <div class="hits" id="hits" hidden></div>
+      </div>
+      <div class="tablewrap"><table>
+        <thead><tr><th>股票</th><th>现价</th><th>涨跌幅</th><th>目标价</th><th>下破价</th><th>持股</th><th>成本</th><th>盈亏</th><th>提醒</th><th>操作</th></tr></thead>
+        <tbody id="stockRows"></tbody>
+      </table></div>
+      <p class="hint">只填代码就会默认监控这只股票；目标价、持仓等都可以不填。</p>
+    </div>
+  </section>
+  <section id="tab-layout">
+    <div class="card"><h2>分屏布局</h2><div class="layouts" id="layouts"></div></div>
+    <div class="card">
+      <h2>自定义布局（类似监控软件的不规则分屏）</h2>
+      <div class="row">
+        <label class="field">列数<input id="cCols" type="number" min="1" max="12"></label>
+        <label class="field">行数<input id="cRows" type="number" min="1" max="12"></label>
+        <button class="btn" id="cClear">清空</button>
+        <button class="btn" id="cFill">空白处填满小窗</button>
+        <button class="btn primary" id="cSave">保存并应用</button>
+      </div>
+      <div class="editor" id="editor"></div>
+      <p class="hint">在网格上按住拖动画出一个窗口，点击已有窗口可删除。数字表示显示第几只股票。</p>
+    </div>
+  </section>
+  <section id="tab-display"><div id="displayForm"></div></section>
+  <section id="tab-alert"><div id="alertForm"></div>
+    <div class="card"><h2>测试提醒</h2><div class="row" id="testRow"></div></div>
+    <div class="card"><h2>提醒记录</h2><div id="alertLog" class="muted"></div></div>
+  </section>
+  <section id="tab-system"><div id="systemForm"></div>
+    <div class="card"><h2>配置备份</h2>
+      <div class="row">
+        <button class="btn" id="exportBtn">导出配置</button>
+        <label class="btn">导入配置<input id="importFile" type="file" accept=".json" hidden></label>
+      </div>
+      <p class="hint">导出的文件包含持仓和访问密码，请妥善保管。导入会覆盖当前全部配置。</p>
+    </div>
+  </section>
+</main>
+
+<dialog id="editDialog"><form method="dialog" id="editForm"></form></dialog>
+<div id="toast"></div>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const CLIENT = 'androidtv-stock';
+let state = null, meta = null, pin = '';
+try { pin = localStorage.getItem('pin') || ''; } catch (e) {}
+
+function el(tag, props = {}, ...kids) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === 'class') node.className = v;
+    else if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
+    else if (k in node) node[k] = v;
+    else node.setAttribute(k, v);
+  }
+  for (const kid of kids) if (kid != null) node.append(kid);
+  return node;
+}
+
+function toast(text) {
+  const t = $('toast');
+  t.textContent = text;
+  t.classList.add('show');
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+async function api(path, body) {
+  const opts = { headers: { 'X-Requested-With': CLIENT } };
+  if (pin) opts.headers['X-Pin'] = pin;
+  if (body !== undefined) { opts.method = 'POST'; opts.body = JSON.stringify(body); opts.headers['Content-Type'] = 'application/json'; }
+  const res = await fetch(path, opts);
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) {
+    const input = prompt(pin ? '访问密码错误，请重新输入：' : '请输入访问密码：');
+    if (input === null) throw new Error('需要访问密码');
+    pin = input.trim();
+    try { localStorage.setItem('pin', pin); } catch (e) {}
+    return api(path, body);
+  }
+  if (!res.ok) throw new Error(data.error || ('请求失败 ' + res.status));
+  return data;
+}
+
+async function saveSettings(patch) {
+  try {
+    await api('/api/settings', patch);
+    Object.assign(state.settings, patch);
+    toast('已保存，电视已同步');
+  } catch (e) { toast(e.message); }
+}
+
+/* ---------- 标签页 ---------- */
+const TABS = [['stocks', '自选股'], ['layout', '分屏布局'], ['display', '显示'], ['alert', '提醒'], ['system', '系统']];
+function showTab(id) {
+  document.querySelectorAll('section').forEach(s => s.classList.toggle('on', s.id === 'tab-' + id));
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.id === id));
+  try { localStorage.setItem('tab', id); } catch (e) {}
+}
+TABS.forEach(([id, label]) => {
+  const b = el('button', { type: 'button', onclick: () => showTab(id) }, label);
+  b.dataset.id = id;
+  $('tabs').append(b);
+});
+
+/* ---------- 通用设置表单 ---------- */
+const FORMS = () => ({
+  displayForm: [
+    ['图表与文字', [
+      ['displayMode', 'select', '展示方式', meta.displayModes],
+      ['klinePeriod', 'select', 'K线周期', [{value:'day',label:'日K'},{value:'week',label:'周K'},{value:'month',label:'月K'}]],
+      ['klineCount', 'number', 'K线数量', {min:20,max:250}],
+      ['fontScale', 'number', '字体大小（%，50-250）', {min:50,max:250,step:5}],
+      ['showStats', 'check', '显示详细数据（今开/最高/成交量等）'],
+      ['showHoldings', 'check', '显示持仓与目标价'],
+      ['showTargetLines', 'check', '图表上显示目标/成本标记线'],
+      ['priceTickFlash', 'check', '价格变动时窗口轻闪'],
+      ['privacy', 'check', '隐私模式（电视上隐藏持仓和盈亏金额）'],
+    ]],
+    ['刷新', [
+      ['refreshSec', 'number', '交易时段刷新间隔（秒）', {min:1,max:600}],
+      ['idleRefreshSec', 'number', '非交易时段刷新间隔（秒）', {min:5,max:3600}],
+      ['source', 'select', '行情来源', [{value:'AUTO',label:'自动（腾讯优先，失败切新浪）'},{value:'TENCENT',label:'腾讯'},{value:'SINA',label:'新浪'}]],
+    ]],
+    ['外观', [
+      ['theme', 'select', '主题', meta.themes],
+      ['colorScheme', 'select', '涨跌颜色', [{value:'RED_UP',label:'红涨绿跌'},{value:'GREEN_UP',label:'绿涨红跌'}]],
+      ['gridGap', 'number', '窗口间距（像素）', {min:0,max:32}],
+      ['pageIntervalSec', 'number', '自动翻页（秒，0 为关闭）', {min:0,max:3600}],
+      ['showHeader', 'check', '顶部状态栏'],
+      ['showIndices', 'check', '状态栏显示大盘指数'],
+      ['showClock', 'check', '状态栏显示时钟'],
+      ['showPortfolio', 'check', '状态栏显示持仓汇总'],
+      ['showTicker', 'check', '底部滚动行情条'],
+      ['burnInGuard', 'check', '防烧屏（每分钟微移画面）'],
+    ]],
+  ],
+  alertForm: [
+    ['默认提醒方式', [
+      ['alertModes', 'modes', '到价时'],
+      ['alertDurationSec', 'number', '提醒持续（秒，0 为直到手动关闭）', {min:0,max:3600}],
+      ['flashSpeedMs', 'number', '闪烁间隔（毫秒）', {min:150,max:3000,step:50}],
+      ['flashColor', 'color', '闪烁颜色'],
+      ['alertRepeatMin', 'number', '条件持续满足时重复提醒（分钟，0 为只提醒一次）', {min:0,max:1440}],
+      ['alertTradingOnly', 'check', '只在交易时段提醒（避免盘后误报）'],
+      ['alertJumpPage', 'check', '提醒时自动跳到该股票所在页'],
+    ]],
+  ],
+  systemForm: [
+    ['服务', [
+      ['webPort', 'number', 'Web 端口（修改后请用新端口访问）', {min:1024,max:65535}],
+      ['webPin', 'text', '访问密码（留空为不设密码）'],
+      ['autostart', 'check', '开机自启（部分系统可能限制）'],
+      ['keepServiceOnExit', 'check', '退出界面后保持 Web 服务运行'],
+    ]],
+  ],
+});
+
+function field(key, type, label, extra) {
+  const value = state.settings[key];
+  const save = v => saveSettings({ [key]: v });
+  if (type === 'check') {
+    return el('label', { class: 'check' }, el('input', { type: 'checkbox', checked: !!value, onchange: e => save(e.target.checked) }), label);
+  }
+  if (type === 'select') {
+    const s = el('select', { onchange: e => save(e.target.value) }, ...extra.map(o => el('option', { value: o.value }, o.label)));
+    s.value = value;
+    return el('label', { class: 'field' }, label, s);
+  }
+  if (type === 'modes') {
+    return el('div', {}, el('div', { class: 'muted' }, label), modeChecks(value, next => save(next)));
+  }
+  const input = el('input', { type, value: value ?? '', onchange: e => {
+    if (type !== 'number') return save(e.target.value);
+    const n = Number(e.target.value);
+    if (!Number.isFinite(n)) return toast('请输入数字');
+    const clamped = Math.min(extra.max, Math.max(extra.min, n));
+    e.target.value = clamped;
+    save(clamped);
+  } });
+  if (extra) for (const k of ['min', 'max', 'step']) if (extra[k] != null) input[k] = extra[k];
+  return el('label', { class: 'field' }, label, input);
+}
+
+function modeChecks(values, onChange) {
+  const set = new Set(values || []);
+  return el('div', { class: 'row', style: 'margin-top:6px;gap:14px' }, ...meta.alertModes.map(m =>
+    el('label', { class: 'check' }, el('input', { type: 'checkbox', checked: set.has(m.value), value: m.value, onchange: e => {
+      e.target.checked ? set.add(m.value) : set.delete(m.value);
+      onChange && onChange([...set]);
+    } }), m.label)));
+}
+
+function renderForms() {
+  for (const [id, groups] of Object.entries(FORMS())) {
+    $(id).replaceChildren(...groups.map(([title, fields]) =>
+      el('div', { class: 'card' }, el('h2', {}, title),
+        el('div', { class: 'grid' }, ...fields.map(([k, t, l, e]) => field(k, t, l, e))))));
+  }
+}
+
+/* ---------- 自选股 ---------- */
+const fmt = (n, d = 2) => n == null ? '--' : Number(n).toFixed(d);
+const sign = n => n > 0 ? 'up' : n < 0 ? 'down' : 'muted';
+const signed = (n, d = 2) => n == null ? '--' : (n > 0 ? '+' : '') + Number(n).toFixed(d);
+function money(n) {
+  if (n == null) return '--';
+  const a = Math.abs(n);
+  return a >= 1e8 ? (n / 1e8).toFixed(2) + '亿' : a >= 1e5 ? (n / 1e4).toFixed(2) + '万' : n.toFixed(2);
+}
+
+function renderStocks() {
+  const rows = state.stocks.map((s, i) => {
+    const q = s.quote, h = s.holding, d = q ? q.decimals : 2;
+    const conds = [s.targetHigh, s.targetLow, s.pctUp, s.pctDown, s.profitPct, s.lossPct].filter(v => v != null).length;
+    const name = s.alias || (q && q.name) || '加载中';
+    return el('tr', { class: s.enabled ? '' : 'muted' },
+      el('td', {}, el('b', {}, name), ' ', el('span', { class: 'muted' }, s.code)),
+      el('td', { class: q ? sign(q.change) : '' }, q ? fmt(q.price, d) : '--'),
+      el('td', { class: q ? sign(q.change) : '' }, q ? signed(q.changePct) + '%' : '--'),
+      el('td', {}, fmt(s.targetHigh, d)),
+      el('td', {}, fmt(s.targetLow, d)),
+      el('td', {}, s.shares ?? '--'),
+      el('td', {}, h && h.cost != null ? fmt(h.cost, d) : '--'),
+      el('td', { class: h && h.profit != null ? sign(h.profit) : '' }, h && h.profit != null ? `${signed(h.profit)} (${signed(h.profitPct)}%)` : '--'),
+      el('td', {}, conds ? conds + ' 项' : '--'),
+      el('td', { class: 'ops' },
+        el('button', { class: 'btn', type: 'button', title: '上移', onclick: () => move(i, -1) }, '↑'),
+        el('button', { class: 'btn', type: 'button', title: '下移', onclick: () => move(i, 1) }, '↓'),
+        el('button', { class: 'btn', type: 'button', onclick: () => editStock(s) }, '编辑'),
+        el('button', { class: 'btn danger', type: 'button', onclick: () => removeStock(s) }, '删除')));
+  });
+  $('stockRows').replaceChildren(...rows);
+
+  const p = state.portfolio;
+  $('summary').replaceChildren(...(p ? [
+    ['持仓市值', money(p.marketValue), ''],
+    ['今日盈亏', (p.dayProfit > 0 ? '+' : '') + money(p.dayProfit), sign(p.dayProfit)],
+    ['累计盈亏', (p.profit > 0 ? '+' : '') + money(p.profit), sign(p.profit)],
+    ['累计收益率', p.profitPct != null ? signed(p.profitPct) + '%' : '--', sign(p.profitPct)],
+  ].map(([k, v, c]) => el('div', {}, el('span', { class: 'muted' }, k), el('b', { class: c }, v))) : []));
+}
+
+async function move(i, delta) {
+  const codes = state.stocks.map(s => s.code);
+  const j = i + delta;
+  if (j < 0 || j >= codes.length) return;
+  [codes[i], codes[j]] = [codes[j], codes[i]];
+  try { await api('/api/stocks/reorder', { codes }); await refresh(); } catch (e) { toast(e.message); }
+}
+
+async function removeStock(s) {
+  if (!confirm(`确定删除 ${s.alias || (s.quote && s.quote.name) || s.code}？持仓和提醒设置也会一起删除。`)) return;
+  try { await api('/api/stocks/delete', { code: s.code }); await refresh(); toast('已删除'); } catch (e) { toast(e.message); }
+}
+
+async function addStock(code) {
+  $('hits').hidden = true;
+  if (!code) return toast('请输入股票代码');
+  if (state.stocks.some(s => s.code === code || s.code.endsWith(code))) return toast('已在自选中');
+  try {
+    await api('/api/stocks', { code });
+    $('search').value = '';
+    await refresh();
+    toast('已添加，默认监控');
+  } catch (e) { toast(e.message); }
+}
+
+let searchTimer;
+$('search').addEventListener('input', e => {
+  clearTimeout(searchTimer);
+  const q = e.target.value.trim();
+  if (!q) { $('hits').hidden = true; return; }
+  searchTimer = setTimeout(async () => {
+    try {
+      const hits = await api('/api/search?q=' + encodeURIComponent(q));
+      if ($('search').value.trim() !== q) return;
+      $('hits').replaceChildren(...hits.map(h => el('div', { onclick: () => addStock(h.code) }, `${h.name}  ${h.code}`)));
+      $('hits').hidden = !hits.length;
+    } catch (err) { /* 搜索失败时仍可直接输入代码添加 */ }
+  }, 250);
+});
+$('search').addEventListener('keydown', e => { if (e.key === 'Enter') addStock($('search').value.trim()); });
+$('addBtn').addEventListener('click', () => addStock($('search').value.trim()));
+document.addEventListener('click', e => { if (!$('search').parentNode.contains(e.target)) $('hits').hidden = true; });
+
+const STOCK_FIELDS = [
+  ['基本', [['alias', 'text', '显示名称（可选）'], ['displayMode', 'mode', '展示方式']]],
+  ['到价提醒（不填不提醒）', [
+    ['targetHigh', 'number', '目标价（价格 ≥ 时提醒）'], ['targetLow', 'number', '下破/止损价（价格 ≤ 时提醒）'],
+    ['pctUp', 'number', '涨幅提醒（%）'], ['pctDown', 'number', '跌幅提醒（%，填正数）'],
+    ['profitPct', 'number', '持仓盈利提醒（%）'], ['lossPct', 'number', '持仓亏损提醒（%，填正数）'],
+  ]],
+  ['持仓（不填不计算盈亏）', [
+    ['buyPrice', 'number', '购买价'], ['shares', 'number', '购买股数'],
+    ['holdPrice', 'number', '持仓价'], ['costPrice', 'number', '成本价（优先用于计算盈亏）'],
+    ['buyDate', 'date', '买入日期'], ['note', 'text', '备注'],
+  ]],
+];
+
+function editStock(s) {
+  const inputs = {};
+  const form = $('editForm');
+  const groups = STOCK_FIELDS.map(([title, fields]) => [el('h3', {}, title), el('div', { class: 'grid' }, ...fields.map(([k, t, l]) => {
+    let input;
+    if (t === 'mode') {
+      input = el('select', {}, el('option', { value: '' }, '跟随全局'), ...meta.displayModes.map(o => el('option', { value: o.value }, o.label)));
+    } else {
+      input = el('input', { type: t });
+      if (t === 'number') { input.step = 'any'; input.min = 0; }
+    }
+    input.value = s[k] ?? '';
+    inputs[k] = input;
+    return el('label', { class: 'field' }, l, input);
+  }))]).flat();
+
+  const inherit = el('input', { type: 'checkbox', checked: s.alertModes == null });
+  const modes = modeChecks(s.alertModes ?? state.settings.alertModes);
+  const syncInherit = () => { modes.style.display = inherit.checked ? 'none' : 'flex'; };
+  inherit.addEventListener('change', syncInherit);
+  syncInherit();
+  const enabled = el('input', { type: 'checkbox', checked: s.enabled });
+
+  form.replaceChildren(
+    el('h2', {}, `${s.alias || (s.quote && s.quote.name) || ''} ${s.code}`),
+    ...groups,
+    el('h3', {}, '提醒方式'),
+    el('label', { class: 'check' }, inherit, '跟随全局提醒方式'),
+    modes,
+    el('h3', {}, '其他'),
+    el('label', { class: 'check' }, enabled, '启用（停用后不显示也不提醒）'),
+    el('div', { class: 'actions' },
+      el('button', { class: 'btn', type: 'button', onclick: () => $('editDialog').close() }, '取消'),
+      el('button', { class: 'btn', type: 'button', onclick: async () => {
+        await saveStock(s, inputs, inherit, modes, enabled, false);
+        api('/api/alert/test', { code: s.code, modes: inherit.checked ? undefined : pickedModes(modes) }).catch(e => toast(e.message));
+      } }, '保存并测试提醒'),
+      el('button', { class: 'btn primary', type: 'button', onclick: () => saveStock(s, inputs, inherit, modes, enabled, true) }, '保存')));
+  $('editDialog').showModal();
+}
+
+// 表单内按回车不要关闭弹窗（否则未保存的内容会丢失）
+$('editForm').addEventListener('submit', e => e.preventDefault());
+
+const pickedModes = box => [...box.querySelectorAll('input:checked')].map(i => i.value);
+
+async function saveStock(s, inputs, inherit, modes, enabled, close) {
+  const body = { code: s.code, enabled: enabled.checked };
+  for (const [k, input] of Object.entries(inputs)) {
+    const v = input.value.trim();
+    if (v !== '') body[k] = input.type === 'number' ? Number(v) : v;
+  }
+  if (!inherit.checked) body.alertModes = pickedModes(modes);
+  try {
+    await api('/api/stocks', body);
+    if (close) $('editDialog').close();
+    await refresh();
+    toast('已保存');
+  } catch (e) { toast(e.message); }
+}
+
+/* ---------- 布局 ---------- */
+function previewOf(def) {
+  const box = el('div', { class: 'preview' });
+  box.style.gridTemplateColumns = `repeat(${def.cols},1fr)`;
+  box.style.gridTemplateRows = `repeat(${def.rows},1fr)`;
+  def.cells.forEach(c => {
+    const i = document.createElement('i');
+    i.style.gridArea = `${c.y + 1}/${c.x + 1}/${c.y + c.h + 1}/${c.x + c.w + 1}`;
+    box.append(i);
+  });
+  return box;
+}
+
+function renderLayouts() {
+  const all = [...meta.layouts];
+  if (state.settings.customLayout) all.push({ ...state.settings.customLayout, id: 'custom', name: '自定义' });
+  $('layouts').replaceChildren(...all.map(def =>
+    el('div', { class: 'layout' + (state.settings.layoutId === def.id ? ' on' : ''), onclick: async () => {
+      await saveSettings({ layoutId: def.id });
+      renderLayouts();
+    } }, previewOf(def), def.name)));
+}
+
+const editor = { cols: 4, rows: 3, cells: [], drag: null };
+
+function renderEditor() {
+  const box = $('editor');
+  box.style.gridTemplateColumns = `repeat(${editor.cols},1fr)`;
+  box.style.gridTemplateRows = `repeat(${editor.rows},1fr)`;
+  const nodes = [];
+  const sel = editor.drag && dragRect();
+  for (let y = 0; y < editor.rows; y++) for (let x = 0; x < editor.cols; x++) {
+    if (editor.cells.some(c => x >= c.x && x < c.x + c.w && y >= c.y && y < c.y + c.h)) continue;
+    const n = document.createElement('span');
+    n.style.gridArea = `${y + 1}/${x + 1}`;
+    n.dataset.x = x; n.dataset.y = y;
+    if (sel && x >= sel.x && x < sel.x + sel.w && y >= sel.y && y < sel.y + sel.h) n.className = 'sel';
+    nodes.push(n);
+  }
+  editor.cells.forEach((c, i) => {
+    const b = el('b', { title: '点击删除', onclick: () => { editor.cells.splice(i, 1); renderEditor(); } }, String(i + 1));
+    b.style.gridArea = `${c.y + 1}/${c.x + 1}/${c.y + c.h + 1}/${c.x + c.w + 1}`;
+    nodes.push(b);
+  });
+  box.replaceChildren(...nodes);
+}
+
+function dragRect() {
+  const { x0, y0, x1, y1 } = editor.drag;
+  return { x: Math.min(x0, x1), y: Math.min(y0, y1), w: Math.abs(x1 - x0) + 1, h: Math.abs(y1 - y0) + 1 };
+}
+const overlaps = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+
+$('editor').addEventListener('pointerdown', e => {
+  if (e.target.tagName !== 'SPAN') return;
+  e.preventDefault();
+  const x = +e.target.dataset.x, y = +e.target.dataset.y;
+  editor.drag = { x0: x, y0: y, x1: x, y1: y };
+  renderEditor();
+});
+window.addEventListener('pointermove', e => {
+  if (!editor.drag) return;
+  const t = document.elementFromPoint(e.clientX, e.clientY);
+  if (t && t.tagName === 'SPAN' && t.dataset.x != null && (+t.dataset.x !== editor.drag.x1 || +t.dataset.y !== editor.drag.y1)) {
+    editor.drag.x1 = +t.dataset.x; editor.drag.y1 = +t.dataset.y;
+    renderEditor();
+  }
+});
+window.addEventListener('pointerup', () => {
+  if (!editor.drag) return;
+  const r = dragRect();
+  editor.drag = null;
+  if (editor.cells.some(c => overlaps(c, r))) toast('不能与已有窗口重叠');
+  else editor.cells.push(r);
+  renderEditor();
+});
+function setGrid() {
+  const clamp = v => Math.min(12, Math.max(1, Math.round(+v) || 1));
+  editor.cols = clamp($('cCols').value);
+  editor.rows = clamp($('cRows').value);
+  $('cCols').value = editor.cols; $('cRows').value = editor.rows;
+  editor.cells = editor.cells.filter(c => c.x + c.w <= editor.cols && c.y + c.h <= editor.rows);
+  renderEditor();
+}
+$('cCols').addEventListener('change', setGrid);
+$('cRows').addEventListener('change', setGrid);
+$('cClear').addEventListener('click', () => { editor.cells = []; renderEditor(); });
+$('cFill').addEventListener('click', () => {
+  for (let y = 0; y < editor.rows; y++) for (let x = 0; x < editor.cols; x++) {
+    const c = { x, y, w: 1, h: 1 };
+    if (!editor.cells.some(o => overlaps(o, c))) editor.cells.push(c);
+  }
+  renderEditor();
+});
+$('cSave').addEventListener('click', async () => {
+  if (!editor.cells.length) return toast('请先在网格上画出窗口');
+  const customLayout = { id: 'custom', name: '自定义', cols: editor.cols, rows: editor.rows, cells: editor.cells };
+  await saveSettings({ customLayout, layoutId: 'custom' });
+  renderLayouts();
+});
+
+function initEditor() {
+  const custom = state.settings.customLayout;
+  if (custom) { editor.cols = custom.cols; editor.rows = custom.rows; editor.cells = custom.cells.map(c => ({ ...c })); }
+  $('cCols').value = editor.cols; $('cRows').value = editor.rows;
+  renderEditor();
+}
+
+/* ---------- 提醒 ---------- */
+function renderTestRow() {
+  $('testRow').replaceChildren(
+    ...meta.alertModes.map(m => el('button', { class: 'btn', type: 'button', onclick: () => testAlert([m.value]) }, '测试' + m.label)),
+    el('button', { class: 'btn', type: 'button', onclick: () => api('/api/alert/dismiss', {}).then(() => toast('已关闭提醒')).catch(e => toast(e.message)) }, '关闭电视上的提醒'));
+}
+function testAlert(modes) { api('/api/alert/test', { modes }).then(() => toast('已发送到电视')).catch(e => toast(e.message)); }
+
+function renderAlertLog() {
+  const list = state.alerts;
+  $('alertLog').replaceChildren(...(list.length ? list.map(a =>
+    el('div', { class: 'alertrow' }, el('span', { class: 'muted' }, new Date(a.timeMs).toLocaleString('zh-CN') + '  '), a.message)) : ['本次启动后暂无提醒']));
+}
+
+/* ---------- 系统 ---------- */
+$('exportBtn').addEventListener('click', async () => {
+  try {
+    const data = await api('/api/export');
+    const a = el('a', { href: URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })), download: 'androidtv-stock-config.json' });
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } catch (e) { toast(e.message); }
+});
+$('importFile').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file || !confirm('导入会覆盖当前全部配置，确定继续？')) return;
+  try {
+    await api('/api/import', JSON.parse(await file.text()));
+    await refresh();
+    renderAll();
+    toast('导入成功');
+  } catch (err) { toast('导入失败：' + err.message); }
+});
+
+/* ---------- 启动与轮询 ---------- */
+function renderStatus() {
+  const st = state.status, node = $('status');
+  const stale = !st.lastSuccessMs || Date.now() - st.lastSuccessMs > 120000;
+  node.classList.toggle('err', !!st.lastError);
+  node.textContent = `v${st.version} · ${st.webUrl || ''} · ` + (st.lastError ? '行情获取失败' : stale ? '等待行情…' : '行情更新于 ' + new Date(st.lastSuccessMs).toLocaleTimeString('zh-CN'));
+}
+
+async function refresh() {
+  state = await api('/api/state');
+  renderStocks();
+  renderAlertLog();
+  renderStatus();
+}
+
+function renderAll() {
+  renderForms();
+  renderLayouts();
+  initEditor();
+  renderTestRow();
+}
+
+(async function init() {
+  try {
+    meta = await api('/api/meta');
+    await refresh();
+    renderAll();
+    let tab = 'stocks';
+    try { tab = localStorage.getItem('tab') || tab; } catch (e) {}
+    showTab(TABS.some(t => t[0] === tab) ? tab : 'stocks');
+    setInterval(() => {
+      if (!document.hidden) refresh().catch(() => { $('status').textContent = '与电视的连接已断开，正在重试…'; $('status').classList.add('err'); });
+    }, 3000);
+  } catch (e) {
+    $('status').textContent = '无法连接：' + e.message;
+    $('status').classList.add('err');
+  }
+})();
+</script>
+</body>
+</html>
