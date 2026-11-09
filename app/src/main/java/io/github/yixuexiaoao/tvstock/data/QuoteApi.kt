@@ -1,5 +1,6 @@
 package io.github.yixuexiaoao.tvstock.data
 
+import io.github.yixuexiaoao.tvstock.log.AppLog
 import io.github.yixuexiaoao.tvstock.model.KLine
 import io.github.yixuexiaoao.tvstock.model.MinutePoint
 import io.github.yixuexiaoao.tvstock.model.Quote
@@ -15,6 +16,8 @@ import javax.net.ssl.SSLException
 object QuoteApi {
     private const val BATCH = 50
     private val GBK: Charset = Charset.forName("GBK")
+    private val sslFallbackHosts = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    @Volatile private var sinaFallbackActive = false
 
     private fun fetchOnce(url: String, charset: Charset, referer: String?): String {
         val conn = URL(url).openConnection() as HttpURLConnection
@@ -35,6 +38,7 @@ object QuoteApi {
         try {
             fetchOnce("https://$host$pathAndQuery", charset, referer)
         } catch (e: SSLException) {
+            if (sslFallbackHosts.add(host)) AppLog.w("Quote", "$host 的 HTTPS 不可用，回退 HTTP（检查电视系统时间）", e)
             fetchOnce("http://$host$pathAndQuery", charset, referer)
         }
 
@@ -52,8 +56,15 @@ object QuoteApi {
             "TENCENT" -> tencent(codes)
             "SINA" -> sina(codes)
             else -> try {
-                tencent(codes).ifEmpty { sina(codes) }
+                val list = tencent(codes)
+                if (sinaFallbackActive && list.isNotEmpty()) {
+                    sinaFallbackActive = false
+                    AppLog.i("Quote", "腾讯行情恢复")
+                }
+                list.ifEmpty { sina(codes) }
             } catch (e: IOException) {
+                if (!sinaFallbackActive) AppLog.w("Quote", "腾讯行情失败，切换新浪", e)
+                sinaFallbackActive = true
                 sina(codes)
             }
         }

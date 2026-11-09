@@ -64,6 +64,11 @@ dialog h3{margin:16px 0 8px;font-size:13px;color:var(--accent)}
 #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#22303f;border:1px solid var(--line);padding:8px 16px;border-radius:8px;opacity:0;transition:.2s;pointer-events:none;z-index:20}
 #toast.show{opacity:1}
 .alertrow{padding:8px 0;border-bottom:1px solid var(--line)}
+a.btn{text-decoration:none;display:inline-block}
+.notes{white-space:pre-wrap;background:#0e141b;border-radius:6px;padding:10px;margin:0 0 10px;max-height:220px;overflow:auto;font:13px/1.5 inherit}
+.logs{background:#0e141b;border-radius:6px;padding:8px;max-height:64vh;min-height:200px;overflow:auto;font:12px/1.55 Consolas,Menlo,monospace}
+.log{white-space:pre-wrap;word-break:break-all;padding:1px 0;border-bottom:1px solid #18202a}
+.log.D{color:var(--sub)}.log.W{color:var(--warn)}.log.E{color:var(--up)}
 </style>
 </head>
 <body>
@@ -116,6 +121,33 @@ dialog h3{margin:16px 0 8px;font-size:13px;color:var(--accent)}
         <label class="btn">导入配置<input id="importFile" type="file" accept=".json" hidden></label>
       </div>
       <p class="hint">导出的文件包含持仓和访问密码，请妥善保管。导入会覆盖当前全部配置。</p>
+    </div>
+    <div class="card"><h2>版本更新</h2>
+      <p id="updateText" class="muted" style="margin:0 0 10px"></p>
+      <pre id="updateNotes" class="notes" hidden></pre>
+      <div class="row">
+        <button class="btn" id="updateCheck">检查更新</button>
+        <button class="btn primary" id="updateInstall" hidden>下载并在电视上安装</button>
+        <a class="btn" id="updatePage" target="_blank" rel="noopener noreferrer" hidden>打开发布页</a>
+      </div>
+      <p class="hint">安装时需要在电视上用遥控器确认。首次安装可能要先在系统设置中允许本应用安装未知应用。</p>
+    </div>
+  </section>
+  <section id="tab-logs">
+    <div class="card">
+      <h2>运行日志</h2>
+      <div class="row" style="margin-bottom:10px">
+        <select id="logLevel" style="width:auto">
+          <option value="D">全部</option><option value="I" selected>信息及以上</option><option value="W">警告及以上</option><option value="E">仅错误</option>
+        </select>
+        <input id="logQ" placeholder="搜索关键字" style="width:200px">
+        <label class="check"><input type="checkbox" id="logAuto" checked>自动刷新</label>
+        <button class="btn" id="logRefresh">刷新</button>
+        <button class="btn" id="logDownload">下载</button>
+        <button class="btn danger" id="logClear">清除日志</button>
+      </div>
+      <div class="logs" id="logList"></div>
+      <p class="hint">反馈问题时可以下载日志一起发送，日志中可能包含局域网地址和股票代码。需要按键、请求等详细信息时，在“系统”页打开详细日志。</p>
     </div>
   </section>
 </main>
@@ -180,11 +212,12 @@ async function saveSettings(patch) {
 }
 
 /* ---------- 标签页 ---------- */
-const TABS = [['stocks', '自选股'], ['layout', '分屏布局'], ['display', '显示'], ['alert', '提醒'], ['system', '系统']];
+const TABS = [['stocks', '自选股'], ['layout', '分屏布局'], ['display', '显示'], ['alert', '提醒'], ['system', '系统'], ['logs', '日志']];
 function showTab(id) {
   document.querySelectorAll('section').forEach(s => s.classList.toggle('on', s.id === 'tab-' + id));
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.id === id));
   try { localStorage.setItem('tab', id); } catch (e) {}
+  if (id === 'logs') loadLogs();
 }
 TABS.forEach(([id, label]) => {
   const b = el('button', { type: 'button', onclick: () => showTab(id) }, label);
@@ -213,6 +246,8 @@ const FORMS = () => ({
     ]],
     ['外观', [
       ['theme', 'select', '主题', meta.themes],
+      ['dayStart', 'time', '白天开始（自动主题）'],
+      ['nightStart', 'time', '夜晚开始（自动主题）'],
       ['colorScheme', 'select', '涨跌颜色', [{value:'RED_UP',label:'红涨绿跌'},{value:'GREEN_UP',label:'绿涨红跌'}]],
       ['gridGap', 'number', '窗口间距（像素）', {min:0,max:32}],
       ['screenMargin', 'number', '屏幕边距（dp，画面被电视裁切时调大）', {min:0,max:64}],
@@ -242,6 +277,11 @@ const FORMS = () => ({
       ['webPin', 'text', '访问密码（留空为不设密码）'],
       ['autostart', 'check', '开机自启（部分系统可能限制）'],
       ['keepServiceOnExit', 'check', '退出界面后保持 Web 服务运行'],
+    ]],
+    ['更新与调试', [
+      ['updateChannel', 'select', '更新范围', [{value:'AUTO',label:'跟随当前版本'},{value:'STABLE',label:'仅正式版'},{value:'PRE',label:'包含预发布版'}]],
+      ['updateAutoCheck', 'check', '自动检查更新'],
+      ['logVerbose', 'check', '详细日志（调试时打开，记录按键和请求）'],
     ]],
   ],
 });
@@ -571,6 +611,53 @@ function renderAlertLog() {
     el('div', { class: 'alertrow' }, el('span', { class: 'muted' }, new Date(a.timeMs).toLocaleString('zh-CN') + '  '), a.message)) : ['本次启动后暂无提醒']));
 }
 
+/* ---------- 更新 ---------- */
+function renderUpdate() {
+  const u = state.status.update;
+  if (!u) return;
+  $('updateText').textContent = `当前版本 ${u.current}。${u.text}`;
+  const r = u.release, available = u.state === 'AVAILABLE' || u.state === 'READY';
+  $('updateNotes').hidden = !(r && r.notes);
+  if (r && $('updateNotes').textContent !== r.notes) $('updateNotes').textContent = r.notes;
+  $('updateInstall').hidden = !available;
+  $('updatePage').hidden = !(r && r.pageUrl);
+  if (r && r.pageUrl) $('updatePage').href = r.pageUrl;
+  $('updateCheck').disabled = u.state === 'CHECKING' || u.state === 'DOWNLOADING';
+}
+$('updateCheck').addEventListener('click', () => api('/api/update/check', {}).then(refresh).catch(e => toast(e.message)));
+$('updateInstall').addEventListener('click', () => api('/api/update/install', {}).then(() => { toast('电视开始下载，完成后请用遥控器确认安装'); return refresh(); }).catch(e => toast(e.message)));
+
+/* ---------- 日志 ---------- */
+const logTime = t => new Date(t).toLocaleString('zh-CN', { hour12: false });
+const logLine = e => `${logTime(e.t)} ${e.level}/${e.tag}: ${e.msg}`;
+function logQuery(limit) {
+  return `/api/logs?level=${$('logLevel').value}&q=${encodeURIComponent($('logQ').value)}&limit=${limit}`;
+}
+async function loadLogs() {
+  try {
+    const list = await api(logQuery(1000));
+    $('logList').replaceChildren(...(list.length
+      ? list.map(e => el('div', { class: 'log ' + e.level }, logLine(e)))
+      : [el('div', { class: 'muted' }, '没有符合条件的日志')]));
+  } catch (e) { toast(e.message); }
+}
+$('logLevel').addEventListener('change', loadLogs);
+$('logQ').addEventListener('input', () => { clearTimeout(loadLogs.timer); loadLogs.timer = setTimeout(loadLogs, 300); });
+$('logRefresh').addEventListener('click', loadLogs);
+$('logDownload').addEventListener('click', async () => {
+  try {
+    const list = await api('/api/logs?level=D&limit=2000');
+    const text = list.slice().reverse().map(logLine).join('\n');
+    const a = el('a', { href: URL.createObjectURL(new Blob([text], { type: 'text/plain' })), download: 'androidtv-stock-log.txt' });
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } catch (e) { toast(e.message); }
+});
+$('logClear').addEventListener('click', async () => {
+  if (!confirm('确定清除全部日志？清除后无法恢复。')) return;
+  try { await api('/api/logs/clear', {}); await loadLogs(); toast('日志已清除'); } catch (e) { toast(e.message); }
+});
+
 /* ---------- 系统 ---------- */
 $('exportBtn').addEventListener('click', async () => {
   try {
@@ -611,6 +698,7 @@ async function refresh() {
   renderStocks();
   renderAlertLog();
   renderStatus();
+  renderUpdate();
 }
 
 function renderAll() {
@@ -629,6 +717,7 @@ function renderAll() {
     try { tab = localStorage.getItem('tab') || tab; } catch (e) {}
     showTab(TABS.some(t => t[0] === tab) ? tab : 'stocks');
     setInterval(() => {
+      if (!document.hidden && $('tab-logs').classList.contains('on') && $('logAuto').checked) loadLogs();
       if (!document.hidden) refresh().catch(() => { $('status').textContent = '与电视的连接已断开，正在重试…'; $('status').classList.add('err'); });
     }, 3000);
   } catch (e) {

@@ -17,6 +17,7 @@ class HeaderView(context: Context) : View(context) {
     var webUrl = ""
     var pageText = ""
     var error: String? = null
+    var updateText = ""
     var palette = Palette.of(config.settings)
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -42,6 +43,11 @@ class HeaderView(context: Context) : View(context) {
             paint.color = palette.accent
             canvas.drawText(pageText, right, baseline, paint)
             right -= paint.measureText(pageText) + gap
+        }
+        if (updateText.isNotEmpty()) {
+            paint.color = palette.accent
+            canvas.drawText(updateText, right, baseline, paint)
+            right -= paint.measureText(updateText) + gap
         }
         error?.let {
             paint.color = palette.up

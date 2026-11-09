@@ -165,6 +165,8 @@ data class AppSettings(
     val idleRefreshSec: Int = 60,
     val fontScale: Int = 100,
     val theme: String = "DARK",
+    val dayStart: String = "07:00",
+    val nightStart: String = "19:00",
     val colorScheme: String = "RED_UP",
     val gridGap: Int = 6,
     val screenMargin: Int = 0,
@@ -192,6 +194,9 @@ data class AppSettings(
     val keepServiceOnExit: Boolean = true,
     val webPort: Int = 8080,
     val webPin: String = "",
+    val updateChannel: String = "AUTO",
+    val updateAutoCheck: Boolean = true,
+    val logVerbose: Boolean = false,
 ) {
     fun effectiveLayout(): GridLayoutDef = Layouts.resolve(layoutId, customLayout)
 
@@ -205,6 +210,8 @@ data class AppSettings(
         put("idleRefreshSec", idleRefreshSec)
         put("fontScale", fontScale)
         put("theme", theme)
+        put("dayStart", dayStart)
+        put("nightStart", nightStart)
         put("colorScheme", colorScheme)
         put("gridGap", gridGap)
         put("screenMargin", screenMargin)
@@ -232,6 +239,9 @@ data class AppSettings(
         put("keepServiceOnExit", keepServiceOnExit)
         put("webPort", webPort)
         put("webPin", webPin)
+        put("updateChannel", updateChannel)
+        put("updateAutoCheck", updateAutoCheck)
+        put("logVerbose", logVerbose)
     }
 
     /** 把 json 中出现的字段合并到当前设置，并把所有值限制到安全范围。 */
@@ -252,6 +262,8 @@ data class AppSettings(
             idleRefreshSec = int("idleRefreshSec", idleRefreshSec, 5, 3600),
             fontScale = int("fontScale", fontScale, 50, 250),
             theme = choice("theme", theme, Themes.ALL),
+            dayStart = json.optString("dayStart", dayStart).takeIf { Themes.parseTime(it) != null } ?: dayStart,
+            nightStart = json.optString("nightStart", nightStart).takeIf { Themes.parseTime(it) != null } ?: nightStart,
             colorScheme = choice("colorScheme", colorScheme, listOf("RED_UP", "GREEN_UP")),
             gridGap = int("gridGap", gridGap, 0, 32),
             screenMargin = int("screenMargin", screenMargin, 0, 64),
@@ -279,6 +291,9 @@ data class AppSettings(
             keepServiceOnExit = bool("keepServiceOnExit", keepServiceOnExit),
             webPort = int("webPort", webPort, 1024, 65535),
             webPin = if (json.has("webPin")) json.optString("webPin", "").trim().take(32) else webPin,
+            updateChannel = choice("updateChannel", updateChannel, listOf("AUTO", "STABLE", "PRE")),
+            updateAutoCheck = bool("updateAutoCheck", updateAutoCheck),
+            logVerbose = bool("logVerbose", logVerbose),
         )
     }
 
@@ -292,12 +307,35 @@ object Themes {
     const val BLACK = "BLACK"
     const val BLUE = "BLUE"
     const val LIGHT = "LIGHT"
-    val ALL = listOf(DARK, BLACK, BLUE, LIGHT)
+    const val NIGHT = "NIGHT"
+    const val AUTO = "AUTO"
+    val ALL = listOf(AUTO, LIGHT, NIGHT, DARK, BLACK, BLUE)
+    private val TIME = Regex("^([01]\\d|2[0-3]):([0-5]\\d)$")
+
+    /** HH:mm 转为当天第几分钟，格式错误返回 null。 */
+    fun parseTime(text: String): Int? =
+        TIME.matchEntire(text)?.let { it.groupValues[1].toInt() * 60 + it.groupValues[2].toInt() }
+
+    /** 把 AUTO 解析为白天或夜晚主题；支持白天时段跨越 0 点。开始时间相同时视为全天白天。 */
+    fun resolve(theme: String, minuteOfDay: Int, dayStart: String, nightStart: String): String {
+        if (theme != AUTO) return theme
+        val day = parseTime(dayStart) ?: 7 * 60
+        val night = parseTime(nightStart) ?: 19 * 60
+        val isDay = when {
+            day == night -> true
+            day < night -> minuteOfDay in day until night
+            else -> minuteOfDay >= day || minuteOfDay < night
+        }
+        return if (isDay) LIGHT else NIGHT
+    }
+
     fun label(theme: String) = when (theme) {
         DARK -> "深色"
         BLACK -> "纯黑"
         BLUE -> "深蓝"
-        LIGHT -> "浅色"
+        LIGHT -> "白天（浅色）"
+        NIGHT -> "夜晚（低亮度）"
+        AUTO -> "自动（按时间切换白天/夜晚）"
         else -> theme
     }
 }

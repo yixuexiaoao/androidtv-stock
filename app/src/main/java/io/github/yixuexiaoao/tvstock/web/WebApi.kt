@@ -1,5 +1,6 @@
 package io.github.yixuexiaoao.tvstock.web
 
+import io.github.yixuexiaoao.tvstock.log.LogEntry
 import io.github.yixuexiaoao.tvstock.model.AlertEvent
 import io.github.yixuexiaoao.tvstock.model.AlertModes
 import io.github.yixuexiaoao.tvstock.model.AppConfig
@@ -30,6 +31,10 @@ interface WebBackend {
     fun testAlert(code: String?, modes: List<String>?)
     fun dismissAlerts()
     fun alertHistory(): List<AlertEvent>
+    fun logs(level: String?, keyword: String?, limit: Int): List<LogEntry>
+    fun clearLogs()
+    fun checkUpdate()
+    fun installUpdate()
     fun status(): JSONObject
 }
 
@@ -81,6 +86,19 @@ class WebApi(private val backend: WebBackend) {
         req.method == "GET" && req.path == "/api/meta" -> ok(meta())
         req.method == "GET" && req.path == "/api/search" -> search(req.query["q"].orEmpty())
         req.method == "GET" && req.path == "/api/export" -> ok(backend.config().toJson())
+        req.method == "GET" && req.path == "/api/logs" -> ok(logs(req.query))
+        req.method == "POST" && req.path == "/api/logs/clear" -> {
+            backend.clearLogs()
+            ok()
+        }
+        req.method == "POST" && req.path == "/api/update/check" -> {
+            backend.checkUpdate()
+            ok()
+        }
+        req.method == "POST" && req.path == "/api/update/install" -> {
+            backend.installUpdate()
+            ok()
+        }
         req.method == "POST" && req.path == "/api/settings" -> {
             backend.updateSettings(JSONObject(req.body))
             ok()
@@ -134,6 +152,17 @@ class WebApi(private val backend: WebBackend) {
                 arr.put(JSONObject().put("code", hit.code).put("name", hit.name).put("type", hit.type))
             }
         })
+    }
+
+    private fun logs(query: Map<String, String>): JSONArray {
+        val limit = (query["limit"]?.toIntOrNull() ?: 500).coerceIn(1, 2000)
+        return JSONArray().also { arr ->
+            backend.logs(query["level"], query["q"], limit).forEach { e ->
+                arr.put(
+                    JSONObject().put("t", e.timeMs).put("level", e.level).put("tag", e.tag).put("msg", e.message),
+                )
+            }
+        }
     }
 
     private fun quoteJson(q: Quote) = JSONObject().apply {

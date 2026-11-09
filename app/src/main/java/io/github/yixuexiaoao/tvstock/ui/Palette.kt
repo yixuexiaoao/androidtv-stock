@@ -1,6 +1,7 @@
 package io.github.yixuexiaoao.tvstock.ui
 
 import android.graphics.Color
+import io.github.yixuexiaoao.tvstock.data.MarketClock
 import io.github.yixuexiaoao.tvstock.model.AppSettings
 import io.github.yixuexiaoao.tvstock.model.Themes
 import kotlin.math.abs
@@ -25,12 +26,18 @@ data class Palette(
     }
 
     companion object {
-        fun of(s: AppSettings): Palette {
+        /** 当前实际生效的主题（AUTO 已按时间解析）。 */
+        fun resolvedTheme(s: AppSettings, nowMs: Long = System.currentTimeMillis()): String =
+            Themes.resolve(s.theme, MarketClock.minuteOfDay(nowMs), s.dayStart, s.nightStart)
+
+        fun of(s: AppSettings, nowMs: Long = System.currentTimeMillis()): Palette {
             val red = Color.parseColor("#FF4D4F")
             val green = Color.parseColor("#22C55E")
             val up = if (s.colorScheme == "GREEN_UP") green else red
             val down = if (s.colorScheme == "GREEN_UP") red else green
-            return when (s.theme) {
+            return when (resolvedTheme(s, nowMs)) {
+                // 夜晚：整体压低亮度，暖色调，减少夜间刺眼
+                Themes.NIGHT -> Palette(c("#050403"), c("#0D0B09"), c("#1F1B17"), c("#A8A29E"), c("#6F6962"), c("#1C1916"), dim(up), dim(down), c("#857F78"), c("#B45309"), c("#8A6A2A"))
                 Themes.BLACK -> Palette(Color.BLACK, Color.BLACK, c("#262626"), Color.WHITE, c("#9CA3AF"), c("#1F1F1F"), up, down, c("#BDBDBD"), c("#4FC3F7"), c("#FFD54F"))
                 Themes.BLUE -> Palette(c("#071427"), c("#0D2140"), c("#1D3B66"), c("#F1F5F9"), c("#94A9C4"), c("#1A3357"), up, down, c("#B4C2D3"), c("#4FC3F7"), c("#FFD54F"))
                 Themes.LIGHT -> Palette(c("#E5E7EB"), c("#FFFFFF"), c("#CBD5E1"), c("#111827"), c("#6B7280"), c("#E5E7EB"), darken(up), darken(down), c("#6B7280"), c("#0284C7"), c("#B45309"))
@@ -39,6 +46,9 @@ data class Palette(
         }
 
         private fun c(hex: String) = Color.parseColor(hex)
+
+        private fun dim(color: Int): Int =
+            Color.rgb((Color.red(color) * 0.68).toInt(), (Color.green(color) * 0.68).toInt(), (Color.blue(color) * 0.68).toInt())
 
         private fun darken(color: Int): Int =
             Color.rgb((Color.red(color) * 0.8).toInt(), (Color.green(color) * 0.75).toInt(), (Color.blue(color) * 0.8).toInt())

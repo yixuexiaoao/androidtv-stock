@@ -1,5 +1,6 @@
 package io.github.yixuexiaoao.tvstock
 
+import io.github.yixuexiaoao.tvstock.log.LogEntry
 import io.github.yixuexiaoao.tvstock.model.AlertEvent
 import io.github.yixuexiaoao.tvstock.model.AppConfig
 import io.github.yixuexiaoao.tvstock.model.Quote
@@ -23,6 +24,10 @@ class WebApiTest {
         var tested: Pair<String?, List<String>?>? = null
         var dismissed = false
         var searchError = false
+        var logs = mutableListOf(LogEntry(1, "E", "Web", "boom"))
+        var logQuery: Triple<String?, String?, Int>? = null
+        var updateChecked = false
+        var updateInstalled = false
 
         override fun config() = cfg
         override fun updateSettings(json: JSONObject) { cfg = cfg.copy(settings = cfg.settings.merged(json)) }
@@ -47,6 +52,13 @@ class WebApiTest {
         override fun dismissAlerts() { dismissed = true }
         override fun alertHistory(): List<AlertEvent> = listOf(AlertEvent(1, "sh600519", "茅台", "TARGET_HIGH", "到价", 110.0, 1, listOf("CELL")))
         override fun status() = JSONObject().put("version", "test")
+        override fun logs(level: String?, keyword: String?, limit: Int): List<LogEntry> {
+            logQuery = Triple(level, keyword, limit)
+            return logs
+        }
+        override fun clearLogs() { logs.clear() }
+        override fun checkUpdate() { updateChecked = true }
+        override fun installUpdate() { updateInstalled = true }
     }
 
     private val fake = Fake()
@@ -151,6 +163,30 @@ class WebApiTest {
         assertEquals(1500.0, fake.cfg.stocks.single().targetHigh!!, 1e-9)
         assertEquals(130, fake.cfg.settings.fontScale)
         assertEquals(400, post("/api/import", """{"foo":1}""").status)
+    }
+
+    @Test fun logsCanBeReadFilteredAndCleared() {
+        val list = JSONArray(get("/api/logs", query = mapOf("level" to "W", "q" to "bo", "limit" to "99999")).body)
+        assertEquals("boom", list.getJSONObject(0).getString("msg"))
+        assertEquals("E", list.getJSONObject(0).getString("level"))
+        assertEquals(Triple("W", "bo", 2000), fake.logQuery)
+        assertEquals(200, post("/api/logs/clear", "").status)
+        assertEquals(0, JSONArray(get("/api/logs").body).length())
+    }
+
+    @Test fun logsRequireAuthAndClearRequiresClientHeader() {
+        assertEquals(403, post("/api/logs/clear", "", mapOf("host" to "192.168.1.10:8080")).status)
+        assertEquals(1, fake.logs.size)
+        post("/api/settings", """{"webPin":"1234"}""")
+        assertEquals(401, get("/api/logs").status)
+    }
+
+    @Test fun updateEndpoints() {
+        post("/api/update/check", "{}")
+        assertTrue(fake.updateChecked)
+        assertFalse(fake.updateInstalled)
+        post("/api/update/install", "{}")
+        assertTrue(fake.updateInstalled)
     }
 
     @Test fun metaAndUnknownRoute() {

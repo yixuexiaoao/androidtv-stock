@@ -3,6 +3,7 @@ package io.github.yixuexiaoao.tvstock
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import io.github.yixuexiaoao.tvstock.log.AppLog
 import io.github.yixuexiaoao.tvstock.ui.MainActivity
 import io.github.yixuexiaoao.tvstock.web.WebService
 
@@ -11,11 +12,12 @@ class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
         if (!AppCore.config.settings.autostart) return
+        AppLog.i("Boot", "开机自启")
         WebService.start(context)
         try {
             context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        } catch (_: Exception) {
-            // 系统禁止时忽略
+        } catch (e: Exception) {
+            AppLog.w("Boot", "系统禁止开机打开界面", e)
         }
     }
 }

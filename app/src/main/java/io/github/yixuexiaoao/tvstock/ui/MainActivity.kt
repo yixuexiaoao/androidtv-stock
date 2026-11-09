@@ -21,6 +21,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import io.github.yixuexiaoao.tvstock.AppCore
+import io.github.yixuexiaoao.tvstock.log.AppLog
 import io.github.yixuexiaoao.tvstock.model.AlertEvent
 import io.github.yixuexiaoao.tvstock.model.AlertModes
 import io.github.yixuexiaoao.tvstock.model.AppConfig
@@ -28,6 +29,7 @@ import io.github.yixuexiaoao.tvstock.model.DisplayModes
 import io.github.yixuexiaoao.tvstock.model.GridLayoutDef
 import io.github.yixuexiaoao.tvstock.model.Layouts
 import io.github.yixuexiaoao.tvstock.model.StockConfig
+import io.github.yixuexiaoao.tvstock.update.UpdateManager
 import io.github.yixuexiaoao.tvstock.web.WebService
 import org.json.JSONObject
 import kotlin.math.max
@@ -64,12 +66,20 @@ class MainActivity : Activity(), AppCore.Listener {
     private var burnInStep = 0
     private var tone: ToneGenerator? = null
     private var pendingFocusIndex: Int? = null
+    private var appliedTheme = ""
 
     private val clockTick = object : Runnable {
         override fun run() {
             // 每秒刷新：时钟、网络异常提示、后台地址都从这里更新
             refreshHeader()
             maybeAutoPage()
+            // 自动主题到了切换时间
+            if (Palette.resolvedTheme(config.settings) != appliedTheme) {
+                AppLog.i("UI", "主题切换为 ${Palette.resolvedTheme(config.settings)}")
+                applyConfig()
+                renderAlerts()
+            }
+            UpdateManager.autoCheckIfDue()
             handler.postDelayed(this, 1000)
         }
     }
@@ -172,6 +182,7 @@ class MainActivity : Activity(), AppCore.Listener {
         renderAlerts()
         if (AppCore.activeAlerts.isNotEmpty()) startFlash()
         AppCore.repo.wake()
+        onUpdate()
         handler.post(clockTick)
         handler.post(burnInTick)
     }
@@ -192,6 +203,7 @@ class MainActivity : Activity(), AppCore.Listener {
     private fun applyConfig() {
         val s = config.settings
         val palette = Palette.of(s)
+        appliedTheme = Palette.resolvedTheme(s)
         root.setBackgroundColor(palette.background)
         val margin = dp(s.screenMargin)
         content.setPadding(margin, margin, margin, margin)
@@ -323,6 +335,11 @@ class MainActivity : Activity(), AppCore.Listener {
         header.quotes = repo.quotes
         header.webUrl = AppCore.webUrl
         header.error = repo.lastError
+        header.updateText = when (UpdateManager.state) {
+            UpdateManager.State.AVAILABLE, UpdateManager.State.READY -> "新版本 ${UpdateManager.release?.version}"
+            UpdateManager.State.DOWNLOADING -> "下载更新 ${UpdateManager.progress}%"
+            else -> ""
+        }
         val pages = pageCount()
         header.pageText = if (zoomCode == null && pages > 1) "第 ${page + 1}/$pages 页" else ""
         header.invalidate()
@@ -373,6 +390,11 @@ class MainActivity : Activity(), AppCore.Listener {
         flashPhase = true
         renderAlerts()
         startFlash()
+    }
+
+    override fun onUpdate() {
+        refreshHeader()
+        if (UpdateManager.consumeInstallRequest()) UpdateManager.install(this)
     }
 
     override fun onAlertsCleared() {
@@ -440,8 +462,9 @@ class MainActivity : Activity(), AppCore.Listener {
         try {
             val generator = tone ?: ToneGenerator(AudioManager.STREAM_MUSIC, 100).also { tone = it }
             generator.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 1500)
-        } catch (_: RuntimeException) {
+        } catch (e: RuntimeException) {
             // 部分电视没有可用音频通道
+            AppLog.w("Alert", "提示音播放失败", e)
         }
     }
 
@@ -550,6 +573,7 @@ class MainActivity : Activity(), AppCore.Listener {
 
     private fun handleKey(event: KeyEvent): Boolean {
         val key = event.keyCode
+        AppLog.d("Key", "${KeyEvent.keyCodeToString(key)} repeat=${event.repeatCount}")
         val isConfirm = key == KeyEvent.KEYCODE_DPAD_CENTER || key == KeyEvent.KEYCODE_ENTER || key == KeyEvent.KEYCODE_NUMPAD_ENTER
         if (AppCore.activeAlerts.isNotEmpty() && (isConfirm || key == KeyEvent.KEYCODE_BACK)) {
             AppCore.clearAlerts()

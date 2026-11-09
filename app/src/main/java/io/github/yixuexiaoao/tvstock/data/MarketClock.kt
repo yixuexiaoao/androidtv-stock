@@ -18,6 +18,12 @@ object MarketClock {
         return minute in (9 * 60 + 15)..(11 * 60 + 31) || minute in (12 * 60 + 59)..(15 * 60 + 1)
     }
 
+    /** 北京时间当天第几分钟。 */
+    fun minuteOfDay(ms: Long): Int {
+        val c = calendar(ms)
+        return c.get(Calendar.HOUR_OF_DAY) * 60 + c.get(Calendar.MINUTE)
+    }
+
     /** yyyyMMdd。 */
     fun dateString(ms: Long): String {
         val c = calendar(ms)

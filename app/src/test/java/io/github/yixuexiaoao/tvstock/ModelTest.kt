@@ -10,6 +10,7 @@ import io.github.yixuexiaoao.tvstock.model.PortfolioSummary
 import io.github.yixuexiaoao.tvstock.model.Quote
 import io.github.yixuexiaoao.tvstock.model.StockCodes
 import io.github.yixuexiaoao.tvstock.model.StockConfig
+import io.github.yixuexiaoao.tvstock.model.Themes
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -82,6 +83,30 @@ class ModelTest {
         assertEquals("#FF1744", s.flashColor)
         assertEquals(1024, s.webPort)
         assertTrue(s.privacy)
+    }
+
+    @Test fun autoThemeFollowsTime() {
+        fun at(h: Int, day: String = "07:00", night: String = "19:00") = Themes.resolve(Themes.AUTO, h * 60, day, night)
+        assertEquals(Themes.LIGHT, at(7))
+        assertEquals(Themes.LIGHT, at(18))
+        assertEquals(Themes.NIGHT, at(19))
+        assertEquals(Themes.NIGHT, at(3))
+        // 白天时段跨越 0 点
+        assertEquals(Themes.LIGHT, at(23, "22:00", "06:00"))
+        assertEquals(Themes.LIGHT, at(2, "22:00", "06:00"))
+        assertEquals(Themes.NIGHT, at(12, "22:00", "06:00"))
+        assertEquals(Themes.LIGHT, at(3, "08:00", "08:00"))
+        // 手动主题不受时间影响
+        assertEquals(Themes.BLUE, Themes.resolve(Themes.BLUE, 0, "07:00", "19:00"))
+    }
+
+    @Test fun themeSettingsValidated() {
+        val s = AppSettings().merged(JSONObject("""{"theme":"AUTO","dayStart":"06:30","nightStart":"25:00","updateChannel":"BAD","logVerbose":true}"""))
+        assertEquals("AUTO", s.theme)
+        assertEquals("06:30", s.dayStart)
+        assertEquals("19:00", s.nightStart)
+        assertEquals("AUTO", s.updateChannel)
+        assertTrue(s.logVerbose)
     }
 
     @Test fun configRoundTrip() {

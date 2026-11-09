@@ -25,11 +25,12 @@ import io.github.yixuexiaoao.tvstock.model.Layouts
 import io.github.yixuexiaoao.tvstock.model.StockCodes
 import io.github.yixuexiaoao.tvstock.model.StockConfig
 import io.github.yixuexiaoao.tvstock.model.Themes
+import io.github.yixuexiaoao.tvstock.update.UpdateManager
 import org.json.JSONArray
 import org.json.JSONObject
 
 /** 电视端设置：全部可用遥控器操作。左右键改值，确认键循环下一项或执行。 */
-class SettingsActivity : Activity() {
+class SettingsActivity : Activity(), AppCore.Listener {
     private class Row(
         val label: String,
         val value: () -> String,
@@ -38,16 +39,16 @@ class SettingsActivity : Activity() {
     )
 
     private lateinit var list: LinearLayout
+    private lateinit var scroll: ScrollView
+    private var builtPalette: Palette? = null
+    private val palette: Palette get() = Palette.of(settings)
     private val rows = ArrayList<Pair<TextView, Row>>()
 
     private val settings: AppSettings get() = AppCore.config.settings
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val scroll = ScrollView(this).apply {
-            setBackgroundColor(Color.parseColor("#0F1720"))
-            isFillViewport = true
-        }
+        scroll = ScrollView(this).apply { isFillViewport = true }
         list = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             // 电视安全区：四周留白防止过扫描裁切
@@ -56,6 +57,22 @@ class SettingsActivity : Activity() {
         scroll.addView(list, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         setContentView(scroll)
         rebuild(0)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        AppCore.addListener(this)
+        onUpdate()
+    }
+
+    override fun onStop() {
+        AppCore.removeListener(this)
+        super.onStop()
+    }
+
+    override fun onUpdate() {
+        refreshTexts()
+        if (UpdateManager.consumeInstallRequest()) UpdateManager.install(this)
     }
 
     private fun put(key: String, value: Any) = AppCore.updateSettings(JSONObject().put(key, value))
@@ -100,6 +117,8 @@ class SettingsActivity : Activity() {
                 choice("K线周期", listOf("day", "week", "month"), { settings.klinePeriod }, { mapOf("day" to "日K", "week" to "周K", "month" to "月K")[it] ?: it }, "klinePeriod"),
                 number("字体大小", listOf(50, 60, 70, 80, 90, 100, 110, 120, 130, 150, 175, 200, 250), { settings.fontScale }, "%", "fontScale"),
                 choice("主题", Themes.ALL, { settings.theme }, Themes::label, "theme"),
+                choice("白天开始（自动主题）", TIMES, { settings.dayStart }, { it }, "dayStart"),
+                choice("夜晚开始（自动主题）", TIMES, { settings.nightStart }, { it }, "nightStart"),
                 choice("涨跌颜色", listOf("RED_UP", "GREEN_UP"), { settings.colorScheme }, { if (it == "RED_UP") "红涨绿跌" else "绿涨红跌" }, "colorScheme"),
                 number("窗口间距", listOf(0, 2, 4, 6, 8, 12, 16), { settings.gridGap }, "px", "gridGap"),
                 number("屏幕边距（画面被裁切时调大）", listOf(0, 8, 16, 24, 32, 48, 64), { settings.screenMargin }, "dp", "screenMargin"),
@@ -142,6 +161,10 @@ class SettingsActivity : Activity() {
                 Row("Web 后台", { AppCore.webUrl.ifEmpty { "未启动" } }, onOk = ::showQr),
                 toggle("开机自启", { settings.autostart }, "autostart"),
                 toggle("退出后保持 Web 服务", { settings.keepServiceOnExit }, "keepServiceOnExit"),
+                Row("检查更新", { UpdateManager.statusText() }, onOk = ::updateAction),
+                choice("更新范围", listOf("AUTO", "STABLE", "PRE"), { settings.updateChannel }, { mapOf("AUTO" to "跟随当前版本", "STABLE" to "仅正式版", "PRE" to "包含预发布版")[it] ?: it }, "updateChannel"),
+                toggle("自动检查更新", { settings.updateAutoCheck }, "updateAutoCheck"),
+                toggle("详细日志（调试时打开）", { settings.logVerbose }, "logVerbose"),
                 Row("版本", { BuildConfig.VERSION_NAME }),
             ),
         )
@@ -159,25 +182,44 @@ class SettingsActivity : Activity() {
         }, onOk = { stockMenu(stock) })
     }
 
+    private fun updateAction() {
+        when (UpdateManager.state) {
+            UpdateManager.State.AVAILABLE -> {
+                val r = UpdateManager.release ?: return
+                dialog()
+                    .setTitle("新版本 ${r.version}" + if (r.prerelease) "（预发布）" else "")
+                    .setMessage(r.notes.ifBlank { "暂无更新说明" })
+                    .setPositiveButton("下载并安装") { _, _ -> UpdateManager.download() }
+                    .setNegativeButton("取消", null)
+                    .show()
+            }
+            UpdateManager.State.READY -> UpdateManager.install(this)
+            UpdateManager.State.CHECKING, UpdateManager.State.DOWNLOADING -> Unit
+            else -> UpdateManager.check()
+        }
+    }
+
     private fun rebuild(focusIndex: Int) {
+        builtPalette = palette
+        scroll.setBackgroundColor(palette.background)
         list.removeAllViews()
         rows.clear()
         list.addView(TextView(this).apply {
             text = "设置"
-            setTextColor(Color.WHITE)
+            setTextColor(palette.text)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 26f)
             setPadding(0, 0, 0, dp(6))
         })
         list.addView(TextView(this).apply {
             text = "方向键上下选择，左右修改，确认键执行，返回键退出。完整设置（持仓、自定义布局等）请使用 Web 后台。"
-            setTextColor(Color.parseColor("#94A3B8"))
+            setTextColor(palette.subText)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             setPadding(0, 0, 0, dp(6))
         })
         sections().forEach { (title, sectionRows) ->
             list.addView(TextView(this).apply {
                 text = title
-                setTextColor(Color.parseColor("#4FC3F7"))
+                setTextColor(palette.accent)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
                 setPadding(dp(4), dp(14), 0, dp(4))
             })
@@ -211,9 +253,9 @@ class SettingsActivity : Activity() {
 
     private fun style(view: TextView) {
         val focused = view.isFocused
-        view.setTextColor(if (focused) Color.BLACK else Color.parseColor("#E2E8F0"))
+        view.setTextColor(if (focused) palette.background else palette.text)
         view.background = GradientDrawable().apply {
-            setColor(if (focused) Color.parseColor("#4FC3F7") else Color.parseColor("#1A2430"))
+            setColor(if (focused) palette.accent else palette.cell)
             cornerRadius = dp(6).toFloat()
         }
     }
@@ -229,6 +271,10 @@ class SettingsActivity : Activity() {
     }
 
     private fun refreshTexts() {
+        if (palette != builtPalette) {
+            rebuild(currentIndex())
+            return
+        }
         rows.forEach { (view, row) -> view.text = rowText(row) }
     }
 
@@ -348,6 +394,7 @@ class SettingsActivity : Activity() {
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     private companion object {
+        val TIMES = (0 until 48).map { "%02d:%02d".format(it / 2, it % 2 * 30) }
         val COLORS = linkedMapOf(
             "#FF1744" to "红色",
             "#FF9100" to "橙色",

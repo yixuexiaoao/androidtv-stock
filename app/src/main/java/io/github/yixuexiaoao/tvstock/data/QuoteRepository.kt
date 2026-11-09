@@ -1,5 +1,6 @@
 package io.github.yixuexiaoao.tvstock.data
 
+import io.github.yixuexiaoao.tvstock.log.AppLog
 import io.github.yixuexiaoao.tvstock.model.AppConfig
 import io.github.yixuexiaoao.tvstock.model.KLine
 import io.github.yixuexiaoao.tvstock.model.MinutePoint
@@ -31,6 +32,8 @@ class QuoteRepository(
     private val minuteFetchedAt = ConcurrentHashMap<String, Long>()
     private val klineFetchedAt = ConcurrentHashMap<String, Long>()
     private val inFlight = ConcurrentHashMap.newKeySet<String>()
+    private var lastMissing: Set<String> = emptySet()
+    private val chartErrorLoggedAt = ConcurrentHashMap<String, Long>()
 
     @Volatile var foreground = false
     /** Web 服务运行时允许后台轮询；服务和界面都不在时停止访问网络。 */
@@ -65,6 +68,8 @@ class QuoteRepository(
         try {
             if (foreground || backgroundAllowed) pollOnce()
         } catch (t: Throwable) {
+            // 只在状态变化时记录，断网期间不刷屏
+            if (lastError == null) AppLog.w(TAG, "行情获取失败", t)
             lastError = t.message ?: t.javaClass.simpleName
         }
         schedule(if (wakePending.get()) 0 else nextDelayMs())
@@ -81,10 +86,20 @@ class QuoteRepository(
     private fun pollOnce() {
         val cfg = config()
         val codes = (cfg.stocks.filter { it.enabled }.map { it.code } + INDEX_CODES).distinct()
+        val started = System.currentTimeMillis()
         val list = QuoteApi.quotes(codes, cfg.settings.source)
         list.forEach { quotes[it.code] = it }
         lastSuccessMs = System.currentTimeMillis()
+        if (lastError != null) AppLog.i(TAG, "行情恢复正常")
         lastError = null
+        AppLog.d(TAG, "请求 ${codes.size} 只，返回 ${list.size} 只，耗时 ${lastSuccessMs - started}ms")
+        if (list.size < codes.size) {
+            val missing = codes.toSet() - list.map { it.code }.toSet()
+            if (missing != lastMissing) AppLog.w(TAG, "这些代码没有返回行情：" + missing.joinToString())
+            lastMissing = missing
+        } else {
+            lastMissing = emptySet()
+        }
         onQuotes(list)
         fetchChartsIfDue(cfg)
     }
@@ -120,8 +135,13 @@ class QuoteRepository(
             try {
                 block()
                 onCharts()
-            } catch (_: Exception) {
-                // 图表失败不影响报价，下个周期重试
+            } catch (e: Exception) {
+                // 图表失败不影响报价，下个周期重试；同一张图每分钟最多记录一次
+                val now = System.currentTimeMillis()
+                if (now - (chartErrorLoggedAt[key] ?: 0) >= 60_000) {
+                    chartErrorLoggedAt[key] = now
+                    AppLog.w(TAG, "图表获取失败 $key", e)
+                }
             } finally {
                 inFlight.remove(key)
             }
@@ -129,6 +149,7 @@ class QuoteRepository(
     }
 
     companion object {
+        private const val TAG = "Quote"
         val INDEX_CODES = listOf("sh000001", "sz399001", "sz399006", "sh000300")
         private const val MINUTE_MAX_AGE_TRADING = 20_000L
         private const val MINUTE_MAX_AGE_IDLE = 600_000L

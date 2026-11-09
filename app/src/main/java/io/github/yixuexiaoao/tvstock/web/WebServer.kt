@@ -2,6 +2,7 @@ package io.github.yixuexiaoao.tvstock.web
 
 import android.content.Context
 import fi.iki.elonen.NanoHTTPD
+import io.github.yixuexiaoao.tvstock.log.AppLog
 import java.io.ByteArrayOutputStream
 import java.net.Inet4Address
 import java.net.NetworkInterface
@@ -16,10 +17,15 @@ class WebServer(
 
     override fun serve(session: IHTTPSession): Response {
         val uri = session.uri
-        val response = when {
-            uri.startsWith("/api/") -> serveApi(session)
-            uri == "/" || uri == "/index.html" -> serveIndex()
-            else -> newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "Not Found")
+        val response = try {
+            when {
+                uri.startsWith("/api/") -> serveApi(session)
+                uri == "/" || uri == "/index.html" -> serveIndex()
+                else -> newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "Not Found")
+            }
+        } catch (e: Exception) {
+            AppLog.e("Web", "处理请求失败 ${session.method} $uri", e)
+            newFixedLengthResponse(Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "Internal Error")
         }
         response.addHeader("X-Content-Type-Options", "nosniff")
         response.addHeader("X-Frame-Options", "DENY")
@@ -46,6 +52,11 @@ class WebServer(
                 body = body,
             ),
         )
+        // 轮询接口太频繁，不记录
+        if (session.uri != "/api/state" && session.uri != "/api/logs") {
+            AppLog.d("Web", "${session.method} ${session.uri} -> ${result.status}")
+        }
+        if (result.status >= 400) AppLog.w("Web", "${session.method} ${session.uri} -> ${result.status}")
         // 密码错误时稍作延迟，减缓局域网内暴力尝试
         if (result.status == 401 && session.headers.containsKey("x-pin")) Thread.sleep(800)
         return json(result.status, result.body)

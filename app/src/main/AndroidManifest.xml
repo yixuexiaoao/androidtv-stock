@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- 同时兼容电视与手机/平板（便于调试），电视上显示在 Leanback 桌面 -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
@@ -49,6 +50,12 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="局域网 Web 管理后台与自选股行情监控" />
         </service>
+
+        <provider
+            android:name=".update.ApkProvider"
+            android:authorities="${applicationId}.apk"
+            android:exported="false"
+            android:grantUriPermissions="true" />
 
         <receiver
             android:name=".BootReceiver"

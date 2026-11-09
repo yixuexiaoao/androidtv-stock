@@ -1,5 +1,7 @@
 name: Build APK
 
+# 推送到 main：发布预发布版（v<VERSION>-pre.<运行序号>）
+# 推送标签 v<VERSION>：发布正式版；标签带 -（如 v1.0.0-rc1）仍为预发布版
 on:
   push:
     branches: [main]
@@ -18,8 +20,34 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
     steps:
       - uses: actions/checkout@v5
+
+      - name: Compute version
+        id: version
+        run: |
+          base=$(tr -d '[:space:]' < VERSION)
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            tag="${GITHUB_REF#refs/tags/}"
+            version="${tag#v}"
+            if [ "${version%%-*}" != "$base" ]; then
+              echo "::error::标签 $tag 与 VERSION 文件中的 $base 不一致"
+              exit 1
+            fi
+          else
+            version="$base-pre.$GITHUB_RUN_NUMBER"
+            tag="v$version"
+          fi
+          if [[ "$version" == *-* ]]; then prerelease=true; else prerelease=false; fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          echo "STOCK_VERSION_NAME=$version" >> "$GITHUB_ENV"
+          echo "版本 $version，标签 $tag，预发布 $prerelease"
 
       - uses: actions/setup-java@v5
         with:
@@ -100,7 +128,8 @@ jobs:
           if-no-files-found: ignore
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    # 拉取请求只构建不发布
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-24.04
     permissions:
@@ -114,5 +143,10 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.build.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ needs.build.outputs.tag }}
+          prerelease: ${{ needs.build.outputs.prerelease }}
+          make_latest: ${{ needs.build.outputs.prerelease == 'false' }}
           files: dist/*.apk
           generate_release_notes: true

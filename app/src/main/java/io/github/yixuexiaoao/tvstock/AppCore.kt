@@ -6,12 +6,15 @@ import android.os.Looper
 import io.github.yixuexiaoao.tvstock.alert.AlertEngine
 import io.github.yixuexiaoao.tvstock.data.QuoteApi
 import io.github.yixuexiaoao.tvstock.data.QuoteRepository
+import io.github.yixuexiaoao.tvstock.log.AppLog
+import io.github.yixuexiaoao.tvstock.log.LogEntry
 import io.github.yixuexiaoao.tvstock.model.AlertEvent
 import io.github.yixuexiaoao.tvstock.model.AlertModes
 import io.github.yixuexiaoao.tvstock.model.AppConfig
 import io.github.yixuexiaoao.tvstock.model.Quote
 import io.github.yixuexiaoao.tvstock.model.SearchHit
 import io.github.yixuexiaoao.tvstock.model.StockConfig
+import io.github.yixuexiaoao.tvstock.update.UpdateManager
 import io.github.yixuexiaoao.tvstock.web.WebBackend
 import org.json.JSONObject
 import java.io.File
@@ -27,6 +30,7 @@ object AppCore : WebBackend {
         fun onConfig() {}
         fun onAlert(event: AlertEvent) {}
         fun onAlertsCleared() {}
+        fun onUpdate() {}
     }
 
     private const val HISTORY_MAX = 200
@@ -50,6 +54,7 @@ object AppCore : WebBackend {
     fun init(context: Context) {
         configFile = File(context.filesDir, "config.json")
         cfg = loadConfig()
+        AppLog.verbose = cfg.settings.logVerbose
         repo = QuoteRepository(
             config = { cfg },
             onQuotes = ::handleQuotes,
@@ -63,16 +68,21 @@ object AppCore : WebBackend {
     private fun loadConfig(): AppConfig = try {
         if (configFile.exists()) AppConfig.fromJson(JSONObject(configFile.readText())) else AppConfig()
     } catch (e: Exception) {
+        AppLog.e("Config", "配置文件读取失败，使用默认配置", e)
         AppConfig()
     }
 
     private fun persist(next: AppConfig) {
         io.execute {
-            val tmp = File(configFile.parentFile, "config.json.tmp")
-            tmp.writeText(next.toJson().toString(2))
-            if (!tmp.renameTo(configFile)) {
-                configFile.delete()
-                tmp.renameTo(configFile)
+            try {
+                val tmp = File(configFile.parentFile, "config.json.tmp")
+                tmp.writeText(next.toJson().toString(2))
+                if (!tmp.renameTo(configFile)) {
+                    configFile.delete()
+                    tmp.renameTo(configFile)
+                }
+            } catch (e: java.io.IOException) {
+                AppLog.e("Config", "配置保存失败", e)
             }
         }
     }
@@ -80,6 +90,7 @@ object AppCore : WebBackend {
     @Synchronized
     private fun commit(next: AppConfig) {
         cfg = next
+        AppLog.verbose = next.settings.logVerbose
         persist(next)
         repo.wake()
         main.post { listeners.forEach { it.onConfig() } }
@@ -99,6 +110,7 @@ object AppCore : WebBackend {
     }
 
     private fun raise(event: AlertEvent) {
+        AppLog.i("Alert", "${event.kind} ${event.code}：${event.message}，方式 ${event.modes.joinToString()}")
         synchronized(history) {
             history.addFirst(event)
             while (history.size > HISTORY_MAX) history.removeLast()
@@ -108,7 +120,12 @@ object AppCore : WebBackend {
     }
 
     /** 主线程：清除全部正在进行的提醒。 */
+    fun notifyUpdate() {
+        main.post { listeners.forEach { it.onUpdate() } }
+    }
+
     fun clearAlerts() {
+        if (activeAlerts.isNotEmpty()) AppLog.i("Alert", "提醒已关闭")
         activeAlerts.clear()
         listeners.forEach { it.onAlertsCleared() }
     }
@@ -118,10 +135,15 @@ object AppCore : WebBackend {
     override fun config() = cfg
 
     @Synchronized
-    override fun updateSettings(json: JSONObject) = commit(cfg.copy(settings = cfg.settings.merged(json)))
+    override fun updateSettings(json: JSONObject) {
+        // 只记录字段名，避免把访问密码写进日志
+        AppLog.i("Config", "修改设置：" + json.keys().asSequence().joinToString())
+        commit(cfg.copy(settings = cfg.settings.merged(json)))
+    }
 
     @Synchronized
     override fun upsertStock(stock: StockConfig) {
+        AppLog.i("Config", "保存股票 ${stock.code}")
         val list = cfg.stocks.toMutableList()
         val index = list.indexOfFirst { it.code == stock.code }
         if (index >= 0) list[index] = stock else list += stock
@@ -129,7 +151,10 @@ object AppCore : WebBackend {
     }
 
     @Synchronized
-    override fun deleteStock(code: String) = commit(cfg.copy(stocks = cfg.stocks.filterNot { it.code == code }))
+    override fun deleteStock(code: String) {
+        AppLog.i("Config", "删除股票 $code")
+        commit(cfg.copy(stocks = cfg.stocks.filterNot { it.code == code }))
+    }
 
     @Synchronized
     override fun reorder(codes: List<String>) {
@@ -138,7 +163,10 @@ object AppCore : WebBackend {
     }
 
     @Synchronized
-    override fun replaceConfig(next: AppConfig) = commit(next)
+    override fun replaceConfig(next: AppConfig) {
+        AppLog.i("Config", "导入配置，共 ${next.stocks.size} 只股票")
+        commit(next)
+    }
 
     override fun quotes(): Map<String, Quote> = repo.quotes
 
@@ -160,11 +188,23 @@ object AppCore : WebBackend {
 
     override fun alertHistory(): List<AlertEvent> = synchronized(history) { history.toList() }
 
+    override fun logs(level: String?, keyword: String?, limit: Int): List<LogEntry> = AppLog.query(level, keyword, limit)
+
+    override fun clearLogs() {
+        AppLog.clear()
+        AppLog.i("Log", "日志已清除")
+    }
+
+    override fun checkUpdate() = UpdateManager.check()
+
+    override fun installUpdate() = UpdateManager.download()
+
     override fun status(): JSONObject = JSONObject().apply {
         put("version", BuildConfig.VERSION_NAME)
         put("webUrl", webUrl)
         put("lastSuccessMs", repo.lastSuccessMs)
         put("lastError", repo.lastError ?: JSONObject.NULL)
         put("foreground", repo.foreground)
+        put("update", UpdateManager.statusJson())
     }
 }

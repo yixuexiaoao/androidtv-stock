@@ -3,8 +3,12 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-val appVersion = rootProject.file("VERSION").readText().trim()
-val versionParts = appVersion.split(".").map { it.toInt() }
+// VERSION 是基础版本号；CI 通过 STOCK_VERSION_NAME 传入带预发布后缀的完整版本名
+val baseVersion = rootProject.file("VERSION").readText().trim()
+val appVersion = System.getenv("STOCK_VERSION_NAME")?.takeIf { it.isNotBlank() } ?: baseVersion
+val versionParts = baseVersion.split(".").map { it.toInt() }
+// CI 用递增的运行序号，保证每次构建都能覆盖升级
+val ciRunNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
 
 base.archivesName.set("androidtv-stock-$appVersion")
 
@@ -16,7 +20,7 @@ android {
         applicationId = "io.github.yixuexiaoao.tvstock"
         minSdk = 21
         targetSdk = 34
-        versionCode = versionParts[0] * 10000 + versionParts[1] * 100 + versionParts[2]
+        versionCode = ciRunNumber?.let { 1000 + it } ?: (versionParts[0] * 10000 + versionParts[1] * 100 + versionParts[2])
         versionName = appVersion
     }
 
