@@ -87,6 +87,31 @@ wait_update_state() {
   return 1
 }
 
+top_activity() { adb shell dumpsys activity activities | grep -m1 -E 'mResumedActivity|topResumedActivity' | tr -d '\r'; }
+installed_version() { adb shell dumpsys package "$PKG" | grep -m1 versionName | tr -d ' \r' | cut -d= -f2; }
+
+# 点系统安装窗口的确认按钮（标准对话框的 button1），找不到时退回按键
+confirm_installer() {
+  adb shell uiautomator dump /sdcard/ui.xml > /dev/null
+  adb exec-out cat /sdcard/ui.xml > "$OUT/installer-ui.xml"
+  local center
+  center=$(python3 - "$OUT/installer-ui.xml" <<'PY'
+import re, sys
+xml = open(sys.argv[1], encoding='utf-8', errors='replace').read()
+m = re.search(r'resource-id="android:id/button1"[^>]*?bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', xml)
+print('' if not m else '%d %d' % ((int(m[1]) + int(m[3])) // 2, (int(m[2]) + int(m[4])) // 2))
+PY
+  )
+  note "确认按钮位置：${center:-未找到}"
+  if [ -n "$center" ]; then
+    # shellcheck disable=SC2086
+    adb shell input tap $center
+  else
+    key KEYCODE_DPAD_RIGHT
+    key KEYCODE_DPAD_CENTER
+  fi
+}
+
 # 模拟器刚启动时网络可能还没好，失败时重试，避免把下载验证跳过去
 check_update() {
   local state="" attempt
@@ -115,6 +140,14 @@ if [ -n "$PROBE_APK" ] && [ -f "$PROBE_APK" ]; then
       # READY 后 App 会调起安装器并退到后台，先回到 App 才能读日志
       sleep 3
       shot 00-update-probe
+      # 没有授权时也应该由系统接管（安装器的授权引导），不能停在 App 里只给提示
+      TOP=$(top_activity)
+      note "下载后的前台界面：$TOP"
+      case "$TOP" in
+        ""|*"$PKG/"*) fail "下载后没有弹出系统安装界面：$TOP" ;;
+        *) pass "下载后自动弹出系统界面" ;;
+      esac
+      key KEYCODE_BACK
       launch 4
       get '/api/logs?level=D&limit=200' | json "'\n'.join(e['msg'] for e in reversed(d) if e['tag']=='Update')" > "$OUT/update-log.txt" || true
       cat "$OUT/update-log.txt"
@@ -124,6 +157,31 @@ if [ -n "$PROBE_APK" ] && [ -f "$PROBE_APK" ]; then
       else
         echo "::warning::下载没有走 API 资源地址（可能是接口限流后回退）"
       fi
+      # 已授权：走完弹窗、确认、覆盖安装（相当于用户在授权页打开开关之后）
+      BEFORE=$(installed_version)
+      adb shell appops set "$PKG" REQUEST_INSTALL_PACKAGES allow
+      post /api/update/install '{}' > /dev/null
+      sleep 5
+      shot 00b-installer-confirm
+      TOP=$(top_activity)
+      note "已授权时的前台界面：$TOP"
+      case "$TOP" in
+        *packageinstaller*) pass "已授权时直接弹出安装窗口" ;;
+        *) fail "已授权时没有弹出安装窗口：$TOP" ;;
+      esac
+      confirm_installer
+      AFTER="$BEFORE"
+      for _ in $(seq 1 20); do
+        sleep 3
+        AFTER=$(installed_version)
+        [ -n "$AFTER" ] && [ "$AFTER" != "$BEFORE" ] && break
+      done
+      shot 00c-after-install
+      if [ -n "$AFTER" ] && [ "$AFTER" != "$BEFORE" ]; then
+        pass "App 内更新完成：$BEFORE -> $AFTER"
+      else
+        fail "确认后版本没有变化：$BEFORE -> $AFTER"
+      fi
     elif [ "$state" = "ERROR" ]; then
       echo "::warning::检查更新出错（可能是接口限流）"
     else
@@ -132,7 +190,8 @@ if [ -n "$PROBE_APK" ] && [ -f "$PROBE_APK" ]; then
   else
     fail "低版本构建 Web 服务不可访问"
   fi
-  adb shell am force-stop "$PKG"
+  # 上面可能已经更新到最新正式版，版本号高于下面的旧版本，要卸载才能继续
+  adb uninstall "$PKG" > /dev/null
 fi
 
 # ---------- 升级路径：先装上一个已发布版本，走一遍真实的检查更新和下载 ----------

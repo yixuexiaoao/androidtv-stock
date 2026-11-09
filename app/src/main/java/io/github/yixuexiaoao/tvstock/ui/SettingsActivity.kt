@@ -95,6 +95,7 @@ class SettingsActivity : Activity(), AppCore.Listener {
     override fun onUpdate() {
         refreshTexts()
         if (UpdateManager.consumeInstallRequest()) UpdateManager.install(this)
+        UpdateManager.consumePrompt()?.let { StockDialogs.updatePrompt(this, it) }
     }
 
     private fun put(key: String, value: Any) = AppCore.updateSettings(JSONObject().put(key, value))
@@ -239,17 +240,11 @@ class SettingsActivity : Activity(), AppCore.Listener {
     private fun updateAction() {
         when (UpdateManager.state) {
             UpdateManager.State.AVAILABLE -> {
-                val r = UpdateManager.release ?: return
-                dialog()
-                    .setTitle("新版本 ${r.version}" + if (r.prerelease) "（预发布）" else "")
-                    .setMessage(r.notes.ifBlank { "暂无更新说明" })
-                    .setPositiveButton("下载并安装") { _, _ -> UpdateManager.download() }
-                    .setNegativeButton("取消", null)
-                    .show()
+                StockDialogs.updatePrompt(this, UpdateManager.release ?: return)
             }
             UpdateManager.State.READY -> UpdateManager.install(this)
             UpdateManager.State.CHECKING, UpdateManager.State.DOWNLOADING -> Unit
-            else -> UpdateManager.check()
+            else -> UpdateManager.check(prompt = true)
         }
     }
 

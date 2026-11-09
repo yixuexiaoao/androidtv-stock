@@ -45,6 +45,7 @@ object UpdateManager {
         private set
     @Volatile private var lastCheckMs = 0L
     @Volatile private var installRequested = false
+    @Volatile private var promptAfterCheck = false
 
     fun init(context: Context) {
         app = context.applicationContext
@@ -86,11 +87,13 @@ object UpdateManager {
         if (!AppCore.config.settings.updateAutoCheck) return
         if (state != State.IDLE && state != State.UP_TO_DATE && state != State.ERROR) return
         if (System.currentTimeMillis() - lastCheckMs < AUTO_INTERVAL_MS) return
-        check()
+        check(prompt = true)
     }
 
-    fun check() {
+    /** prompt：发现新版本时在电视上弹窗。Web 后台有自己的安装按钮，不需要弹。 */
+    fun check(prompt: Boolean = false) {
         if (state == State.CHECKING || state == State.DOWNLOADING) return
+        promptAfterCheck = prompt
         lastCheckMs = System.currentTimeMillis()
         set(State.CHECKING)
         worker.execute(::doCheck)
@@ -234,6 +237,13 @@ object UpdateManager {
         }
     }
 
+    /** 前台界面调用：检查到新版本且需要弹窗时返回版本信息，只返回一次。 */
+    fun consumePrompt(): ReleaseInfo? {
+        if (state != State.AVAILABLE || !promptAfterCheck) return null
+        promptAfterCheck = false
+        return release
+    }
+
     /** 前台界面调用：如有等待中的安装请求且已下载完成，返回 true 并清除请求。 */
     fun consumeInstallRequest(): Boolean {
         if (state != State.READY || !installRequested) return false
@@ -247,19 +257,7 @@ object UpdateManager {
             set(if (release != null) State.AVAILABLE else State.IDLE)
             return
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.packageManager.canRequestPackageInstalls()) {
-            AppLog.w(TAG, "未授予安装未知应用权限，打开系统设置")
-            toast(activity, "请允许本应用安装未知应用，然后再次选择“检查更新”进行安装")
-            try {
-                activity.startActivity(
-                    Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${activity.packageName}")),
-                )
-            } catch (e: ActivityNotFoundException) {
-                AppLog.w(TAG, "系统没有未知应用设置页", e)
-                toast(activity, "请在系统设置中手动允许，或用电脑通过 adb 安装：${release?.pageUrl.orEmpty()}")
-            }
-            return
-        }
+        // 不预先检查“安装未知应用”权限：没有权限时系统安装器会自己引导授权，授权后接着安装
         val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             Uri.parse("content://${activity.packageName}.apk/update.apk")
         } else {
@@ -273,8 +271,25 @@ object UpdateManager {
             activity.startActivity(intent)
         } catch (e: ActivityNotFoundException) {
             AppLog.w(TAG, "系统没有安装器", e)
-            toast(activity, "此设备无法直接安装，请到 Releases 页面下载：${release?.pageUrl.orEmpty()}")
+            openUnknownSourcesOrExplain(activity)
         }
+    }
+
+    /** 部分电视系统精简了安装器，这时才退回到授权页和手动安装的提示。 */
+    private fun openUnknownSourcesOrExplain(activity: Activity) {
+        val page = release?.pageUrl.orEmpty()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.packageManager.canRequestPackageInstalls()) {
+            try {
+                activity.startActivity(
+                    Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${activity.packageName}")),
+                )
+                toast(activity, "请允许本应用安装未知应用，然后再次选择“检查更新”")
+                return
+            } catch (e: ActivityNotFoundException) {
+                AppLog.w(TAG, "系统没有未知应用设置页", e)
+            }
+        }
+        toast(activity, "此设备无法直接安装，请用 U 盘或 adb 安装：$page")
     }
 
     private fun toast(context: Context, text: String) = Toast.makeText(context, text, Toast.LENGTH_LONG).show()

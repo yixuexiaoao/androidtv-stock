@@ -18,6 +18,8 @@ import io.github.yixuexiaoao.tvstock.model.StockCodes
 import io.github.yixuexiaoao.tvstock.model.StockConfig
 import io.github.yixuexiaoao.tvstock.model.TradeError
 import io.github.yixuexiaoao.tvstock.model.Trades
+import io.github.yixuexiaoao.tvstock.update.ReleaseInfo
+import io.github.yixuexiaoao.tvstock.update.UpdateManager
 
 /** 电视端的持仓、提醒、记账弹窗，全部可用遥控器和屏幕键盘操作。 */
 object StockDialogs {
@@ -222,6 +224,17 @@ object StockDialogs {
             .setTitle("使用帮助")
             .setView(box)
             .setPositiveButton("知道了", null)
+            .show()
+    }
+
+    /** 发现新版本：确认后下载，下载完自动弹出系统安装窗口。 */
+    fun updatePrompt(activity: Activity, release: ReleaseInfo) {
+        if (activity.isFinishing) return
+        builder(activity)
+            .setTitle("新版本 ${release.version}" + if (release.prerelease) "（预发布）" else "")
+            .setMessage(release.notes.ifBlank { "暂无更新说明" })
+            .setPositiveButton("下载并安装") { _, _ -> UpdateManager.download() }
+            .setNegativeButton("稍后", null)
             .show()
     }
 

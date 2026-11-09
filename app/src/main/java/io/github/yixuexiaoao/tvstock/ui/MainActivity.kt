@@ -502,6 +502,7 @@ class MainActivity : Activity(), AppCore.Listener {
     override fun onUpdate() {
         refreshHeader()
         if (UpdateManager.consumeInstallRequest()) UpdateManager.install(this)
+        UpdateManager.consumePrompt()?.let { StockDialogs.updatePrompt(this, it) }
     }
 
     override fun onAlertsCleared() {
