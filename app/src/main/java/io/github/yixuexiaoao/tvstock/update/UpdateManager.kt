@@ -149,6 +149,11 @@ object UpdateManager {
     }
 
     private fun doCheck() {
+        // 同一个后台线程上，启动时恢复的安装包可能排在这次检查前面执行：已经可以安装了，就不要用检查结果覆盖
+        if (state == State.READY) {
+            AppLog.i(TAG, "已有待安装的更新包，跳过本次检查")
+            return
+        }
         try {
             val includePre = includePrerelease()
             val abis = Build.SUPPORTED_ABIS.toList()
