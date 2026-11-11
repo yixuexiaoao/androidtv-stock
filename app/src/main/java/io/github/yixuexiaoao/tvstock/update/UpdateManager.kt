@@ -26,6 +26,9 @@ object UpdateManager {
     private const val TAG = "Update"
     private const val RELEASES = "https://api.github.com/repos/yixuexiaoao/androidtv-stock/releases"
     private const val AUTO_INTERVAL_MS = 12 * 3600_000L
+    private const val RELEASES_PAGE = "https://github.com/yixuexiaoao/androidtv-stock/releases"
+    /** 授权通常几分钟内完成；隔太久再授权时，那时下载的版本可能已经过时，不自动装 */
+    private const val PENDING_MAX_MS = 6 * 3600_000L
     private const val ACCEPT_JSON = "application/vnd.github+json"
     private const val ACCEPT_APK = "application/octet-stream"
     /** 所有地址都失败后再完整试一轮，应对 504 这类瞬时错误 */
@@ -72,9 +75,14 @@ object UpdateManager {
             marker.delete()
             return
         }
-        if (!marker.exists() || !canInstallPackages(app)) return
+        if (!marker.exists()) return
+        if (System.currentTimeMillis() - marker.lastModified() > PENDING_MAX_MS) {
+            marker.delete()
+            return
+        }
+        if (!canInstallPackages(app)) return
         marker.delete()
-        release = ReleaseInfo(archive.versionName.orEmpty(), false, "", "", file.name, "", file.length(), "")
+        release = ReleaseInfo(archive.versionName.orEmpty(), false, "", RELEASES_PAGE, file.name, "", file.length(), "")
         installRequested = true
         AppLog.i(TAG, "已授权，继续安装 ${archive.versionName}")
         set(State.READY)
@@ -120,6 +128,8 @@ object UpdateManager {
     /** prompt：发现新版本时在电视上弹窗。Web 后台有自己的安装按钮，不需要弹。 */
     fun check(prompt: Boolean = false) {
         if (state == State.CHECKING || state == State.DOWNLOADING) return
+        // 已恢复出待安装的包、正等界面调起安装器时（例如 Web 后台同时点了检查更新），不打断它
+        if (state == State.READY && installRequested) return
         promptAfterCheck = prompt
         lastCheckMs = System.currentTimeMillis()
         set(State.CHECKING)
@@ -341,7 +351,7 @@ object UpdateManager {
 
     /** 部分电视系统精简了安装器，这时才退回到授权页和手动安装的提示。 */
     private fun openUnknownSourcesOrExplain(activity: Activity) {
-        val page = release?.pageUrl.orEmpty()
+        val page = release?.pageUrl?.ifEmpty { null } ?: RELEASES_PAGE
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.packageManager.canRequestPackageInstalls()) {
             try {
                 activity.startActivity(
