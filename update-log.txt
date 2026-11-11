@@ -1,0 +1,8 @@
+发现新版本 1.2.0-pre.26（当前 0.0.1-probe.1），安装包 androidtv-stock-1.2.0-pre.26-universal-release.apk
+发现新版本 1.1.0（当前 0.0.1-probe.1），安装包 androidtv-stock-1.1.0-universal-release.apk
+开始下载 androidtv-stock-1.1.0-universal-release.apk（205658 字节）
+下载完成并校验通过：1.1.0，来源 api.github.com
+调起系统安装器：1.1.0
+已授权，继续安装 1.1.0
+调起系统安装器：1.1.0
+已是最新版本（当前 1.1.0，服务器最新 1.1.0）

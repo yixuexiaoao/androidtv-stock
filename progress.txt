@@ -1,0 +1,72 @@
+[   0s] 安装 probe-apk/androidtv-stock-0.0.1-probe.1-universal-release.apk
+[  24s] 截图：00-update-probe
+[  24s] 下载后的前台界面：    mResumedActivity: ActivityRecord{6de758e u0 com.google.android.packageinstaller/com.android.packageinstaller.PackageInstallerActivity t6}
+[  24s] 通过：下载后自动弹出系统安装界面（未授权）
+[  26s] 确认按钮位置：1342 646
+[  34s] 截图：00a-unknown-sources-allowed
+[  34s] 开关状态：REQUEST_INSTALL_PACKAGES: deny; rejectTime=+13s77ms ago
+[  40s] 授权返回后的前台界面：    mResumedActivity: ActivityRecord{5075e66 u0 com.google.android.tvlauncher/.MainActivity t4}
+[  42s] 通过：重新打开 App 后自动弹出安装窗口
+[  44s] 截图：00b-installer-confirm
+[  46s] 确认按钮位置：1353 643
+[  50s] 截图：00c-after-install
+[  50s] 通过：App 内更新完成：0.0.1-probe.1 -> 1.1.0
+[  56s] 通过：下载走 API 资源地址
+[  56s] 安装 old-apk/old.apk
+[  64s] 通过：旧版本 1.2.0-pre.24 运行在端口 58080
+[  66s] 通过：更新包下载并校验通过
+[  68s] 截图：00-update-installer
+[  70s] 安装 new-apk/androidtv-stock-1.2.0-pre.27-universal-release.apk
+[  81s] 截图：01-first-run-guide
+[  81s] 通过：默认端口 58080
+[  81s] 通过：升级后持仓保留
+[  83s] 通过：加仓摊薄成本
+[  83s] 通过：清仓计入已实现
+[  83s] 通过：撤销记账
+[  83s] 通过：无客户端头的写请求被拒绝
+[  83s] 通过：后台页面可访问
+[  95s] 通过：真实行情已获取（9 只）
+[ 104s] 截图：02-grid4-mixed
+[ 110s] 截图：03-layout-1plus5
+[ 115s] 截图：04-grid8-text
+[ 123s] 截图：05-grid4-kline
+[ 131s] 截图：06-grid16-minute
+[ 140s] 截图：07-focus-moved
+[ 144s] 截图：08-zoom-detail
+[ 150s] 截图：09-zoom-kline
+[ 156s] 截图：10-quick-menu
+[ 161s] 截图：11-settings
+[ 165s] 截图：12-settings-changed
+[ 169s] 截图：12a-settings-look
+[ 172s] 截图：12b-settings-market
+[ 175s] 截图：12c-settings-alert
+[ 177s] 截图：12d-settings-stocks
+[ 180s] 截图：12e-settings-system
+[ 184s] 截图：13-alert-up
+[ 186s] 截图：14-alert-fullscreen
+[ 189s] 截图：15-alert-dismissed
+[ 192s] 截图：16-theme-day
+[ 195s] 截图：17-theme-night
+[ 198s] 截图：18-privacy
+[ 202s] 通过：搜索到美股
+[ 214s] 通过：首次切到美股自动添加示例
+[ 214s] 通过：真实美股行情已获取（5 只）
+[ 214s] 通过：美股持仓单独汇总
+[ 214s] 截图：19-us-grid
+[ 223s] 截图：20-us-kline
+[ 227s] 截图：21-us-text
+[ 235s] 截图：22-us-minute
+[ 244s] 截图：23-us-zoom
+[ 255s] 截图：24-market-tabs-focus
+[ 259s] 通过：顶部标签切到 A 股
+[ 260s] 截图：25-back-to-cn
+[ 264s] 通过：* 键切到美股
+[ 271s] 通过：进程存活
+[ 271s] 通过：日志没有错误
+[ 275s] 通过：进入设置页时 Web 服务继续运行
+[ 282s] 通过：按主页键后 Web 服务关闭
+[ 286s] 通过：回到 App 后 Web 服务恢复（端口 58080）
+[ 290s] 通过：退出后 Web 服务关闭
+[ 290s] 通过：没有常驻服务
+[ 290s] 通过：没有崩溃
+[ 290s] 脚本结束

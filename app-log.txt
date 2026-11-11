@@ -1,0 +1,60 @@
+I/App: 启动 v1.2.0-pre.24（1024），设备 Google AOSP TV on x86，Android 11（API 30），架构 x86
+I/Web: Web 服务已启动，端口 58080
+I/Web: 后台地址：http://10.0.2.16:58080
+I/Update: 发现新版本 1.2.0-pre.26（当前 1.2.0-pre.24），安装包 androidtv-stock-1.2.0-pre.26-universal-release.apk
+I/Config: 修改设置：guideShown
+I/Config: 保存股票 sh600519
+I/Config: 修改设置：updateChannel
+I/Update: 发现新版本 1.2.0-pre.26（当前 1.2.0-pre.24），安装包 androidtv-stock-1.2.0-pre.26-universal-release.apk
+I/Update: 开始下载 androidtv-stock-1.2.0-pre.26-universal-release.apk（208028 字节）
+I/Update: 下载完成并校验通过：1.2.0-pre.26，来源 api.github.com
+I/Update: 调起系统安装器：1.2.0-pre.26
+I/Web: Web 服务已停止
+I/Web: Web 服务已启动，端口 58080
+I/Web: 后台地址：http://10.0.2.16:58080
+I/App: 启动 v1.2.0-pre.27（1027），设备 Google AOSP TV on x86，Android 11（API 30），架构 x86
+I/Web: Web 服务已启动，端口 58080
+I/Web: 后台地址：http://10.0.2.16:58080
+I/Update: 已是最新版本（当前 1.2.0-pre.27，服务器最新 1.2.0-pre.26）
+I/Config: 修改设置：guideShown, alertTradingOnly, refreshSec, layoutId, displayMode, screenMargin
+I/Config: 保存股票 sh600519
+I/Config: 保存股票 sz000001
+I/Config: 保存股票 sz300750
+I/Config: 保存股票 sh000001
+I/Config: 保存股票 sz399006
+I/Config: 保存股票 sh601318
+I/Config: 保存股票 sh600036
+I/Config: 保存股票 sz000858
+I/Config: 保存股票 sh510300
+I/Trade: 加仓记账 sh600519
+I/Trade: 清仓记账 sh600519
+I/Trade: 撤销记账 sh600519
+W/Web: POST /api/logs/clear -> 403
+I/Config: 修改设置：layoutId
+I/Config: 修改设置：layoutId, displayMode
+I/Config: 修改设置：layoutId, displayMode
+I/Config: 修改设置：layoutId, displayMode
+I/Config: 修改设置：layoutId, displayMode
+I/Config: 修改设置：layoutId
+I/Config: 修改设置：layoutId, displayMode
+I/Alert: TEST sh000001：上证指数 上涨提醒测试，方式 CELL, BANNER
+I/Alert: 提醒已关闭
+I/Alert: TEST sh000001：上证指数 下跌提醒测试，方式 FULLSCREEN
+I/Alert: 提醒已关闭
+I/Config: 修改设置：theme
+I/Config: 修改设置：theme
+I/Config: 修改设置：theme, privacy
+I/Config: 修改设置：privacy, sortMode
+I/Config: 修改设置：sortMode
+I/Config: 修改设置：market, layoutId, displayMode
+I/Config: 保存股票 usBRK.B
+I/Config: 修改设置：displayMode
+I/Config: 修改设置：displayMode
+I/Config: 修改设置：displayMode, layoutId
+I/Config: 修改设置：displayMode, layoutId
+I/Config: 修改设置：market
+I/Config: 修改设置：market
+I/Config: 修改设置：market
+I/Web: Web 服务已停止
+I/Web: Web 服务已启动，端口 58080
+I/Web: 后台地址：http://10.0.2.16:58080
