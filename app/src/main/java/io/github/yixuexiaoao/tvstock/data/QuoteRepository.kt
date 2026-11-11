@@ -136,7 +136,7 @@ class QuoteRepository(
         val now = System.currentTimeMillis()
         wantMinute.forEach { code ->
             val trading = MarketClock.isTradingTime(now, StockCodes.market(code))
-            val minuteMaxAge = if (trading) MINUTE_MAX_AGE_TRADING else MINUTE_MAX_AGE_IDLE
+            val minuteMaxAge = if (trading) MINUTE_MAX_AGE_TRADING else CHART_MAX_AGE_IDLE
             if (now - (minuteFetchedAt[code] ?: 0) >= minuteMaxAge) {
                 runChart("m:$code") {
                     minutes[code] = QuoteApi.minute(code)
@@ -151,7 +151,8 @@ class QuoteRepository(
             val exchange = quotes[code]?.exchange.orEmpty()
             if (StockCodes.isUs(code) && exchange.isEmpty()) return@forEach
             val cached = klines[code]
-            val stale = now - (klineFetchedAt[code] ?: 0) >= KLINE_MAX_AGE
+            val klineMaxAge = if (MarketClock.isTradingTime(now, StockCodes.market(code))) KLINE_MAX_AGE_TRADING else CHART_MAX_AGE_IDLE
+            val stale = now - (klineFetchedAt[code] ?: 0) >= klineMaxAge
             if (cached == null || cached.period != period || cached.count != count || stale) {
                 runChart("k:$code") {
                     klines[code] = KLineSet(period, count, QuoteApi.kline(code, exchange, period, count))
@@ -191,8 +192,9 @@ class QuoteRepository(
         /** 第一个用来判断当天是否休市。 */
         fun indexCodes(market: String): List<String> = if (market == Markets.US) US_INDEX_CODES else CN_INDEX_CODES
         private const val MINUTE_MAX_AGE_TRADING = 20_000L
-        private const val MINUTE_MAX_AGE_IDLE = 600_000L
-        private const val KLINE_MAX_AGE = 300_000L
+        private const val KLINE_MAX_AGE_TRADING = 300_000L
+        /** 休市时分时和 K 线都不会再变，只为防止漏掉收盘最后几分钟而偶尔刷新 */
+        private const val CHART_MAX_AGE_IDLE = 900_000L
         private const val CHART_RETRY_MS = 30_000L
         private const val FULL_POLL_MIN_SEC = 30
     }

@@ -6,6 +6,7 @@ import android.os.Looper
 import io.github.yixuexiaoao.tvstock.AppCore
 import io.github.yixuexiaoao.tvstock.log.AppLog
 import java.io.IOException
+import java.util.concurrent.Executors
 
 /** Web 后台随 App 界面启停：离开 App（退出、主页键、屏保）就关闭，不在后台常驻。只在主线程调用。 */
 object WebHost : AppCore.Listener {
@@ -20,6 +21,7 @@ object WebHost : AppCore.Listener {
     private var boundPort = 0
     private var pendingPort = 0
     private val handler = Handler(Looper.getMainLooper())
+    private val lookup = Executors.newSingleThreadExecutor()
 
     /** 电视可能晚于 App 联网，或者 DHCP 更换地址，所以定时刷新后台地址。 */
     private val addressTick = object : Runnable {
@@ -78,10 +80,16 @@ object WebHost : AppCore.Listener {
     }
 
     private fun publishAddress(force: Boolean = false) {
-        val ip = WebServer.lanAddress() ?: "127.0.0.1"
-        val url = if (server != null) "http://$ip:$boundPort" else ""
-        if (!force && url == AppCore.webUrl) return
-        AppLog.i(TAG, "后台地址：${url.ifEmpty { "无" }}")
-        AppCore.webUrl = url
+        lookup.execute {
+            val ip = WebServer.lanAddress() ?: "127.0.0.1"
+            handler.post {
+                // 查询期间服务可能已经停止
+                if (!running) return@post
+                val url = if (server != null) "http://$ip:$boundPort" else ""
+                if (!force && url == AppCore.webUrl) return@post
+                AppLog.i(TAG, "后台地址：${url.ifEmpty { "无" }}")
+                AppCore.webUrl = url
+            }
+        }
     }
 }

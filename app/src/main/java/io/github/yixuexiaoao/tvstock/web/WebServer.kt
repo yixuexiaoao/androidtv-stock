@@ -35,7 +35,8 @@ class WebServer(
     }
 
     private fun serveIndex(): Response {
-        val html = context.assets.open("web/index.html").use { it.readBytes() }.toString(Charsets.UTF_8)
+        val html = indexHtml ?: context.assets.open("web/index.html").use { it.readBytes() }.toString(Charsets.UTF_8)
+            .also { indexHtml = it }
         return newFixedLengthResponse(Response.Status.OK, "text/html; charset=utf-8", html)
     }
 
@@ -83,6 +84,7 @@ class WebServer(
 
     companion object {
         private const val MAX_BODY = 1024 * 1024
+        @Volatile private var indexHtml: String? = null
 
         /** 优先返回有线/无线局域网 IPv4 地址。 */
         fun lanAddress(): String? = try {

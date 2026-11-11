@@ -352,7 +352,11 @@ class MainActivity : Activity(), AppCore.Listener {
         }
     }
 
-    private fun pageCount(): Int = Layouts.pageCount(enabledStocks().size, cells.size)
+    private fun pageCount(): Int {
+        val market = config.settings.market
+        val count = config.stocks.count { it.enabled && StockCodes.market(it.code) == market }
+        return Layouts.pageCount(count, cells.size)
+    }
 
     private fun bindCells() {
         val s = config.settings

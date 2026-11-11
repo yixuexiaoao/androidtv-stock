@@ -38,7 +38,9 @@ object AppCore : WebBackend {
     }
 
     private const val HISTORY_MAX = 200
+    private const val CHARTS_COALESCE_MS = 150L
     private val main = Handler(Looper.getMainLooper())
+    private val chartsChanged = Runnable { listeners.forEach { it.onCharts() } }
     private val io = Executors.newSingleThreadExecutor()
     private val listeners = CopyOnWriteArrayList<Listener>()
     private val engine = AlertEngine()
@@ -64,7 +66,10 @@ object AppCore : WebBackend {
         repo = QuoteRepository(
             config = { cfg },
             onQuotes = ::handleQuotes,
-            onCharts = { main.post { listeners.forEach { it.onCharts() } } },
+            onCharts = {
+                main.removeCallbacks(chartsChanged)
+                main.postDelayed(chartsChanged, CHARTS_COALESCE_MS)
+            },
         )
     }
 

@@ -32,12 +32,22 @@ data class Palette(
         fun resolvedTheme(s: AppSettings, nowMs: Long = System.currentTimeMillis()): String =
             Themes.resolve(s.theme, MarketClock.minuteOfDay(nowMs), s.dayStart, s.nightStart)
 
+        @Volatile private var cached: Pair<String, Palette>? = null
+
+        /** 每次绑定窗口、移动焦点都会调用，结果按“主题 + 涨跌颜色”缓存。 */
         fun of(s: AppSettings, nowMs: Long = System.currentTimeMillis()): Palette {
+            val theme = resolvedTheme(s, nowMs)
+            val key = theme + "|" + s.colorScheme
+            cached?.let { (k, p) -> if (k == key) return p }
+            return build(theme, s.colorScheme).also { cached = key to it }
+        }
+
+        private fun build(theme: String, colorScheme: String): Palette {
             val red = Color.parseColor("#FF4D4F")
             val green = Color.parseColor("#22C55E")
-            val up = if (s.colorScheme == "GREEN_UP") green else red
-            val down = if (s.colorScheme == "GREEN_UP") red else green
-            return when (resolvedTheme(s, nowMs)) {
+            val up = if (colorScheme == "GREEN_UP") green else red
+            val down = if (colorScheme == "GREEN_UP") red else green
+            return when (theme) {
                 // 夜晚：整体压低亮度，暖色调，减少夜间刺眼
                 Themes.NIGHT -> Palette(c("#050403"), c("#0D0B09"), c("#1F1B17"), c("#A8A29E"), c("#6F6962"), c("#1C1916"), dim(up), dim(down), c("#857F78"), c("#B45309"), c("#8A6A2A"))
                 Themes.BLACK -> Palette(Color.BLACK, Color.BLACK, c("#262626"), Color.WHITE, c("#9CA3AF"), c("#1F1F1F"), up, down, c("#BDBDBD"), c("#4FC3F7"), c("#FFD54F"))
