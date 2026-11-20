@@ -382,7 +382,9 @@ class MainActivity : Activity(), AppCore.Listener {
         refreshHeader()
         if (marketChanged || tabChanged || watchModeChanged) {
             stage.post {
-                if (!initial && headerFocused()) return@post
+                val activeTab = if (s.homeTab == HomeTabs.CLOUD) cloudTab else marketTabs[s.market]
+                val stayOnHeader = !initial && !watchModeChanged && (activeTab?.isFocused == true || gear.isFocused)
+                if (stayOnHeader) return@post
                 if (showingHeatmap()) {
                     heatmapView.requestFocus()
                 } else if (cells.none { it.isFocused }) {
@@ -464,12 +466,31 @@ class MainActivity : Activity(), AppCore.Listener {
         val anyHolding = effectiveWeight == HeatmapWeights.HOLDING && holdings.values.any { it != null && it.marketValue > 0.0 }
         val modeForWeight = if (effectiveWeight == HeatmapWeights.HOLDING && !anyHolding) HeatmapWeights.CIRC_CAP else effectiveWeight
 
+        fun medianOf(values: List<Double>): Double {
+            if (values.isEmpty()) return 1.0
+            val sorted = values.sorted()
+            return sorted[sorted.size / 2]
+        }
+
+        // 大盘指数（如上证 55 万亿）和无市值的 ETF 按非指数个股中位数归一，避免单个指数占满屏幕压扁个股
+        val nonIndexCaps = stocks.filter { !StockCodes.isIndex(it.code) }.mapNotNull { st ->
+            val q = quotes[st.code]
+            ((q?.circCapYi?.takeIf { it > 0.0 } ?: q?.totalCapYi?.takeIf { it > 0.0 }) ?: return@mapNotNull null) * 100_000_000.0
+        }
+        val nonIndexAmts = stocks.filter { !StockCodes.isIndex(it.code) }.mapNotNull { st ->
+            val q = quotes[st.code]
+            q?.amountWan?.takeIf { it > 0.0 }?.times(10_000.0)
+        }
+        val medianCap = medianOf(nonIndexCaps)
+        val medianAmt = medianOf(nonIndexAmts)
+
         var up = 0
         var flat = 0
         var down = 0
         var totalAmt = 0.0
         val items = stocks.map { stock ->
             val q = quotes[stock.code]
+            val isIndex = StockCodes.isIndex(stock.code)
             val pct = if (q != null && q.hasTrade) q.changePct else 0.0
             if (q != null && q.hasTrade) {
                 when {
@@ -479,14 +500,14 @@ class MainActivity : Activity(), AppCore.Listener {
                 }
             }
             val amtYuan = if (q != null && !stock.code.startsWith("us.")) q.amountWan * 10_000.0 else 0.0
-            totalAmt += amtYuan
+            if (!isIndex) totalAmt += amtYuan
             val circYuan = (q?.circCapYi?.takeIf { it > 0.0 } ?: q?.totalCapYi?.takeIf { it > 0.0 } ?: 0.0) * 100_000_000.0
             val holding = holdings[stock.code]
             val w = when (modeForWeight) {
                 HeatmapWeights.EQUAL -> 1.0
-                HeatmapWeights.AMOUNT -> amtYuan.takeIf { it > 0.0 } ?: circYuan.takeIf { it > 0.0 } ?: 1.0
+                HeatmapWeights.AMOUNT -> if (isIndex) medianAmt else amtYuan.takeIf { it > 0.0 } ?: medianAmt
                 HeatmapWeights.HOLDING -> holding?.marketValue?.takeIf { it > 0.0 } ?: 1.0
-                else -> circYuan.takeIf { it > 0.0 } ?: amtYuan.takeIf { it > 0.0 } ?: 1.0
+                else -> if (isIndex) medianCap else circYuan.takeIf { it > 0.0 } ?: medianCap
             }
             val badge = if (!s.privacy && s.showHoldings && holding?.profitPct != null) {
                 "持仓 " + Format.percent(holding.profitPct)

@@ -104,19 +104,19 @@ jobs:
             "$APKSIGNER" verify "$apk" && echo "signature OK: $apk"
           done
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: apk-armeabi-v7a
           path: app/build/outputs/apk/release/*-armeabi-v7a-release.apk
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: apk-arm64-v8a
           path: app/build/outputs/apk/release/*-arm64-v8a-release.apk
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: apk-universal
           path: app/build/outputs/apk/release/*-universal-release.apk
@@ -132,13 +132,13 @@ jobs:
           STOCK_KEY_PASSWORD: ${{ secrets.STOCK_KEY_PASSWORD }}
         run: ./gradlew --stacktrace assembleRelease
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: update-probe
           path: app/build/outputs/apk/release/androidtv-stock-0.0.1-probe.1-universal-release.apk
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-reports
@@ -155,12 +155,12 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v8
         with:
           name: apk-universal
           path: new-apk
 
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v8
         with:
           name: update-probe
           path: probe-apk
@@ -193,7 +193,7 @@ jobs:
           # 整体限时，卡住时也能留出时间上传截图和日志
           script: timeout 720 bash scripts/ci-smoke.sh "$(ls new-apk/*.apk | head -1)" old-apk/old.apk "$(ls probe-apk/*.apk | head -1)"
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: smoke-results
@@ -236,13 +236,13 @@ jobs:
           [ -s release-notes.md ] || echo "详见 CHANGELOG.md" > release-notes.md
           cat release-notes.md
 
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           pattern: apk-*
           merge-multiple: true
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.build.outputs.tag }}
           target_commitish: ${{ github.sha }}

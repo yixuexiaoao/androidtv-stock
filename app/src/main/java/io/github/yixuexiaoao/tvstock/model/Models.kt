@@ -69,6 +69,10 @@ object StockCodes {
 
     fun isUs(code: String): Boolean = code.startsWith("us")
 
+    /** 是否为大盘指数（上证 000xxx、深证 399xxx、北证 899xxx、美股 us.xxx）。 */
+    fun isIndex(code: String): Boolean =
+        code.startsWith("sh000") || code.startsWith("sz399") || code.startsWith("bj899") || code.startsWith("us.")
+
     fun market(code: String): String = if (isUs(code)) Markets.US else Markets.CN
 
     fun shortCode(code: String): String =

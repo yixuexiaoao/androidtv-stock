@@ -358,5 +358,13 @@ class ModelTest {
         assertEquals("CLOUD", invalid.homeTab)
         assertEquals("SECTORS", invalid.cloudScope)
         assertEquals("CIRC_CAP", invalid.heatmapWeight)
+
+        assertTrue(StockCodes.isIndex("sh000001"))
+        assertTrue(StockCodes.isIndex("sz399006"))
+        assertTrue(StockCodes.isIndex("bj899050"))
+        assertTrue(StockCodes.isIndex("us.DJI"))
+        assertFalse(StockCodes.isIndex("sh600519"))
+        assertFalse(StockCodes.isIndex("sz000001"))
+        assertFalse(StockCodes.isIndex("usAAPL"))
     }
 }
