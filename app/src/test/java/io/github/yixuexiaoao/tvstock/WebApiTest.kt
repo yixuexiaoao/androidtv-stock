@@ -260,6 +260,8 @@ class WebApiTest {
         assertEquals(5, meta.getJSONArray("cloudScopes").length())
         assertEquals(4, meta.getJSONArray("usCloudScopes").length())
         assertEquals(4, meta.getJSONArray("heatmapWeights").length())
+        assertTrue(meta.getJSONArray("keyActions").length() >= 14)
+        assertTrue(meta.getJSONArray("presetKeys").length() >= 10)
         assertEquals(404, get("/api/nope").status)
     }
 }

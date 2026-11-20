@@ -120,10 +120,21 @@ object QuoteParser {
         return "%04d%02d%02d%02d%02d00".format(y, month, day, hour24, minute)
     }
 
-    /** 新浪美股：hq.sinajs.cn/list=gb_aapl，没有盘口；价格是常规交易时段的价格。 */
+    /** 新浪美股：hq.sinajs.cn/list=gb_aapl；f[1..2] 为常规交易价，f[21..24] 为盘前/盘后价与美东时间。 */
     private fun parseSinaUs(raw: String, f: List<String>): Quote? {
         if (f.size < 30 || f[0].isBlank()) return null
         val price = f.num(1)
+        val regTime = sinaUsTime(f[25], f[29])
+        val extRawPrice = f.numOrNull(21)?.takeIf { it > 0.0 }
+        val extTime = sinaUsTime(f.getOrElse(24) { "" }, f[29])
+        val extHhmm = if (extTime.length >= 12) extTime.substring(8, 12).toIntOrNull() else null
+        val session = when (extHhmm) {
+            in 400..929 -> "PRE"
+            in 1600..2005 -> "POST"
+            else -> ""
+        }
+        // 只保留不早于常规成交时间的盘前/盘后数据，避免盘中误显示早上盘前的旧价
+        val validExt = extRawPrice != null && session.isNotEmpty() && (regTime.isEmpty() || extTime >= regTime)
         return Quote(
             code = fromSinaUsCode(raw),
             name = cleanName(f[0]),
@@ -138,8 +149,13 @@ object QuoteParser {
             amountWan = f.num(30) / 10000,
             pe = f.numOrNull(14),
             totalCapYi = f.numOrNull(12)?.let { it / 100_000_000 },
-            time = sinaUsTime(f[25], f[29]),
+            time = regTime,
             decimals = usDecimals(price),
+            extPrice = if (validExt) extRawPrice else null,
+            extChange = if (validExt) f.numOrNull(23) else null,
+            extChangePct = if (validExt) f.numOrNull(22) else null,
+            extSession = if (validExt) session else "",
+            extTime = if (validExt) extTime else "",
         )
     }
 

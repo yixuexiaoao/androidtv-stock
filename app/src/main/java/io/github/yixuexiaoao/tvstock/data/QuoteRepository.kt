@@ -93,8 +93,14 @@ class QuoteRepository(
     private fun nextDelayMs(): Long {
         val s = config().settings
         val now = System.currentTimeMillis()
-        val trading = watchedMarkets(config()).any { MarketClock.isTradingTime(now, it) }
-        var sec = if (trading) s.refreshSec else maxOf(s.refreshSec, s.idleRefreshSec)
+        val watched = watchedMarkets(config())
+        val trading = watched.any { MarketClock.isTradingTime(now, it) }
+        val usExt = s.usExtendedHours && Markets.US in watched && MarketClock.isUsExtendedTime(now)
+        var sec = when {
+            trading -> s.refreshSec
+            usExt -> maxOf(s.refreshSec, 5)
+            else -> maxOf(s.refreshSec, s.idleRefreshSec)
+        }
         if (!foreground) sec = maxOf(sec, 30)
         // 连续失败时逐步放慢（最多 60 秒），断网期间不空转，也减轻接口压力
         if (consecutiveFailures > 0) sec = maxOf(sec, minOf(60, 1 shl minOf(consecutiveFailures, 6)))
@@ -121,11 +127,12 @@ class QuoteRepository(
         val fullDue = started - lastFullPollMs >= maxOf(cfg.settings.idleRefreshSec, FULL_POLL_MIN_SEC) * 1000L
         if (fullDue) lastFullPollMs = started
         val markets = (stocks.map(StockCodes::market).toSet() + active).filter {
-            fullDue || it == active || MarketClock.isTradingTime(started, it)
+            fullDue || it == active || MarketClock.isTradingTime(started, it) ||
+                (it == Markets.US && cfg.settings.usExtendedHours && MarketClock.isUsExtendedTime(started))
         }
         val extra = listOfNotNull(ephemeralCode)
         val codes = (stocks.filter { StockCodes.market(it) in markets } + extra + markets.flatMap { indexCodes(it) }).distinct()
-        val list = QuoteApi.quotes(codes, cfg.settings.source)
+        val list = QuoteApi.quotes(codes, cfg.settings.source, cfg.settings.usExtendedHours)
         list.forEach { quotes[it.code] = it }
         lastSuccessMs = System.currentTimeMillis()
         if (lastError != null) AppLog.i(TAG, "行情恢复正常")

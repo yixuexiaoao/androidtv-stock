@@ -10,6 +10,8 @@ import io.github.yixuexiaoao.tvstock.model.DisplayModes
 import io.github.yixuexiaoao.tvstock.model.HeatmapWeights
 import io.github.yixuexiaoao.tvstock.model.Holding
 import io.github.yixuexiaoao.tvstock.model.HomeTabs
+import io.github.yixuexiaoao.tvstock.model.KeyActions
+import io.github.yixuexiaoao.tvstock.model.KeyBindings
 import io.github.yixuexiaoao.tvstock.model.Layouts
 import io.github.yixuexiaoao.tvstock.model.PortfolioSummary
 import io.github.yixuexiaoao.tvstock.model.Quote
@@ -216,6 +218,13 @@ class WebApi(private val backend: WebBackend) {
         put("amountWan", q.amountWan)
         put("decimals", q.decimals)
         put("time", q.time)
+        if (q.hasExtended) {
+            putOpt("extPrice", q.extPrice)
+            putOpt("extChange", q.extChange)
+            putOpt("extChangePct", q.extChangePct)
+            put("extSession", q.extSession)
+            put("extTime", q.extTime)
+        }
     }
 
     private fun state(): JSONObject {
@@ -281,6 +290,17 @@ class WebApi(private val backend: WebBackend) {
         put("themes", labeled(Themes.ALL, Themes::label))
         put("sounds", labeled(SoundPresets.ALL, SoundPresets::label))
         put("sortModes", labeled(StockSort.ALL, StockSort::label))
+        put("keyActions", labeled(KeyActions.ALL, KeyActions::label))
+        put("presetKeys", JSONArray().also { arr ->
+            KeyBindings.PRESET_KEYS.forEach { code ->
+                arr.put(
+                    JSONObject()
+                        .put("code", code)
+                        .put("label", KeyBindings.keyLabel(code))
+                        .put("defaultAction", KeyBindings.DEFAULTS[code] ?: KeyActions.NONE),
+                )
+            }
+        })
     }
 
     private fun labeled(values: List<String>, label: (String) -> String) = JSONArray().also { arr ->

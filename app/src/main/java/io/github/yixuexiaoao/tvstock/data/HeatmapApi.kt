@@ -27,7 +27,14 @@ object HeatmapApi {
     private val GBK: Charset = Charset.forName("GBK")
     private val sslFallbackHosts = ConcurrentHashMap.newKeySet<String>()
 
-    private data class UsTopCache(val timeMs: Long, val weightMode: String, val source: String, val items: List<HeatmapItem>)
+    private data class UsTopCache(
+        val timeMs: Long,
+        val weightMode: String,
+        val usExt: Boolean,
+        val source: String,
+        val sessionLabel: String,
+        val items: List<HeatmapItem>,
+    )
     @Volatile private var usTopCache: UsTopCache? = null
 
     private fun fetchOnce(url: String, charset: Charset, referer: String): String {
@@ -61,10 +68,11 @@ object HeatmapApi {
         sectorName: String,
         weightMode: String,
         forceRefresh: Boolean = false,
+        usExtendedHours: Boolean = true,
     ): HeatmapSnapshot {
         val now = System.currentTimeMillis()
         if (market == Markets.US) {
-            return loadUs(scope, sectorId, sectorName, weightMode, now, forceRefresh)
+            return loadUs(scope, sectorId, sectorName, weightMode, now, forceRefresh, usExtendedHours)
         }
         if (sectorId != null && sectorId.startsWith("new_")) {
             return loadSinaSectorStocks(scope, sectorId, sectorName, weightMode, now)
@@ -88,45 +96,49 @@ object HeatmapApi {
         weightMode: String,
         now: Long,
         forceRefresh: Boolean,
+        usExtendedHours: Boolean,
     ): HeatmapSnapshot {
         // 美股行业下钻或美股行业宏观图复用 Top 200 短缓存，下钻切换零延迟
         if (sectorId != null && sectorId.startsWith(HeatmapParser.US_SECTOR_PREFIX)) {
             val targetGroup = sectorId.removePrefix(HeatmapParser.US_SECTOR_PREFIX)
-            val (source, all) = fetchUsTop(weightMode, now, forceRefresh)
-            val filtered = all.filter { it.groupName == targetGroup }
+            val cache = fetchUsTop(weightMode, now, forceRefresh, usExtendedHours)
+            val filtered = cache.items.filter { it.groupName == targetGroup }
             return HeatmapSnapshot(
                 scope = scope,
                 sectorId = sectorId,
                 sectorName = sectorName.ifEmpty { targetGroup },
                 weightMode = weightMode,
-                source = source,
+                source = cache.source,
                 fetchedAtMs = now,
                 breadth = HeatmapParser.breadthOfStocks(filtered),
                 items = filtered,
+                sessionLabel = cache.sessionLabel,
             )
         }
         if (scope == UsCloudScopes.SECTORS) {
-            val (source, all) = fetchUsTop(weightMode, now, forceRefresh)
-            val sectors = HeatmapParser.aggregateUsSectors(all)
+            val cache = fetchUsTop(weightMode, now, forceRefresh, usExtendedHours)
+            val sectors = HeatmapParser.aggregateUsSectors(cache.items)
             return HeatmapSnapshot(
                 scope = scope,
                 weightMode = weightMode,
-                source = source,
+                source = cache.source,
                 fetchedAtMs = now,
-                breadth = HeatmapParser.breadthOfStocks(all),
+                breadth = HeatmapParser.breadthOfStocks(cache.items),
                 items = sectors,
+                sessionLabel = cache.sessionLabel,
             )
         }
         if (scope == UsCloudScopes.TOP) {
-            val (source, all) = fetchUsTop(weightMode, now, forceRefresh)
+            val cache = fetchUsTop(weightMode, now, forceRefresh, usExtendedHours)
             return HeatmapSnapshot(
                 scope = scope,
                 weightMode = weightMode,
-                source = source,
+                source = cache.source,
                 fetchedAtMs = now,
-                breadth = HeatmapParser.breadthOfStocks(all),
-                items = all,
-                groups = HeatmapParser.groupByIndustry(all),
+                breadth = HeatmapParser.breadthOfStocks(cache.items),
+                items = cache.items,
+                groups = HeatmapParser.groupByIndustry(cache.items),
+                sessionLabel = cache.sessionLabel,
             )
         }
         val fid = if (weightMode == HeatmapWeights.AMOUNT) "f6" else "f20"
@@ -137,8 +149,9 @@ object HeatmapApi {
         }
         val path = "/api/qt/clist/get?pn=1&pz=100&po=1&np=1&fltt=2&invt=2&fid=$fid" +
             "&fs=$fs&fields=f12,f13,f14,f2,f3,f6,f20,f21,f100"
-        val items = HeatmapParser.parseEastMoneyUsStocks(fetch(EM_HOST, path, Charsets.UTF_8, EM_REFERER), weightMode)
+        val rawItems = HeatmapParser.parseEastMoneyUsStocks(fetch(EM_HOST, path, Charsets.UTF_8, EM_REFERER), weightMode)
             .distinctBy { it.id }
+        val (sessionLabel, items) = mergeUsExtendedIfNeeded(rawItems, now, usExtendedHours)
         return HeatmapSnapshot(
             scope = scope,
             weightMode = weightMode,
@@ -147,13 +160,29 @@ object HeatmapApi {
             breadth = HeatmapParser.breadthOfStocks(items),
             items = items,
             groups = HeatmapParser.groupByIndustry(items),
+            sessionLabel = sessionLabel,
         )
     }
 
-    private fun fetchUsTop(weightMode: String, now: Long, forceRefresh: Boolean): Pair<String, List<HeatmapItem>> {
+    /** 美股非盘中且开启盘前盘后时，通过新浪批量接口（~40ms/80只）把盘前/盘后价与涨跌幅同步进云图。 */
+    private fun mergeUsExtendedIfNeeded(
+        items: List<HeatmapItem>,
+        now: Long,
+        usExtendedHours: Boolean,
+    ): Pair<String, List<HeatmapItem>> {
+        if (!usExtendedHours || items.isEmpty() || MarketClock.isTradingTime(now, Markets.US)) {
+            return "" to items
+        }
+        val ext = QuoteApi.usExtendedQuotes(items.map { it.id })
+        return HeatmapParser.applyUsExtended(items, ext)
+    }
+
+    private fun fetchUsTop(weightMode: String, now: Long, forceRefresh: Boolean, usExtendedHours: Boolean): UsTopCache {
         val cached = usTopCache
-        if (!forceRefresh && cached != null && cached.weightMode == weightMode && now - cached.timeMs < US_CACHE_TTL_MS) {
-            return cached.source to cached.items
+        if (!forceRefresh && cached != null && cached.weightMode == weightMode &&
+            cached.usExt == usExtendedHours && now - cached.timeMs < US_CACHE_TTL_MS
+        ) {
+            return cached
         }
         val fid = if (weightMode == HeatmapWeights.AMOUNT) "f6" else "f20"
         return try {
@@ -167,8 +196,8 @@ object HeatmapApi {
             }
             val unique = all.distinctBy { it.id }
             if (unique.isEmpty()) throw IOException("东财美股数据为空")
-            usTopCache = UsTopCache(now, weightMode, "东财", unique)
-            "东财" to unique
+            val (sessionLabel, merged) = mergeUsExtendedIfNeeded(unique, now, usExtendedHours)
+            UsTopCache(now, weightMode, usExtendedHours, "东财", sessionLabel, merged).also { usTopCache = it }
         } catch (e: IOException) {
             AppLog.w(TAG, "东财美股云图不可用，切换新浪美股备源", e)
             val sort = if (weightMode == HeatmapWeights.AMOUNT) "volume" else "mktcap"
@@ -176,8 +205,8 @@ object HeatmapApi {
             val items = HeatmapParser.parseSinaUsStocks(fetch(SINA_US_HOST, path, Charsets.UTF_8, SINA_REFERER), weightMode)
                 .distinctBy { it.id }
             if (items.isEmpty()) throw e
-            usTopCache = UsTopCache(now, weightMode, "新浪", items)
-            "新浪" to items
+            val (sessionLabel, merged) = mergeUsExtendedIfNeeded(items, now, usExtendedHours)
+            UsTopCache(now, weightMode, usExtendedHours, "新浪", sessionLabel, merged).also { usTopCache = it }
         }
     }
 

@@ -47,28 +47,59 @@ object QuoteApi {
     private fun tencent(codes: List<String>): List<Quote> =
         codes.chunked(BATCH).flatMap { QuoteParser.parseTencent(fetch("qt.gtimg.cn", "/q=" + it.joinToString(","), GBK)) }
 
-    private fun sina(codes: List<String>): List<Quote> = codes.chunked(BATCH).flatMap {
+    private fun sina(codes: List<String>, batchSize: Int = BATCH): List<Quote> = codes.chunked(batchSize).flatMap {
         val list = it.joinToString(",") { code -> QuoteParser.sinaCode(code) }
         QuoteParser.parseSina(fetch("hq.sinajs.cn", "/list=$list", GBK, "https://finance.sina.com.cn"))
     }
 
+    /** 批量拉取美股盘前/盘后行情（仅非指数美股）；失败时返回空 Map，不影响主行情。 */
+    fun usExtendedQuotes(codes: List<String>): Map<String, Quote> {
+        val targets = codes.filter { StockCodes.isUs(it) && !StockCodes.isIndex(it) }.distinct()
+        if (targets.isEmpty()) return emptyMap()
+        return try {
+            sina(targets, batchSize = 80).filter { it.hasExtended }.associateBy { it.code }
+        } catch (_: Exception) {
+            emptyMap()
+        }
+    }
+
     /** source：AUTO / TENCENT / SINA。AUTO 在腾讯失败或无数据时切换新浪。 */
-    fun quotes(codes: List<String>, source: String): List<Quote> {
+    fun quotes(codes: List<String>, source: String, includeUsExt: Boolean = true): List<Quote> {
         if (codes.isEmpty()) return emptyList()
-        return when (source) {
+        val list = when (source) {
             "TENCENT" -> tencent(codes)
             "SINA" -> sina(codes)
             else -> try {
-                val list = tencent(codes)
-                if (sinaFallbackActive && list.isNotEmpty()) {
+                val q = tencent(codes)
+                if (sinaFallbackActive && q.isNotEmpty()) {
                     sinaFallbackActive = false
                     AppLog.i("Quote", "腾讯行情恢复")
                 }
-                list.ifEmpty { sina(codes) }
+                q.ifEmpty { sina(codes) }
             } catch (e: IOException) {
                 if (!sinaFallbackActive) AppLog.w("Quote", "腾讯行情失败，切换新浪", e)
                 sinaFallbackActive = true
                 sina(codes)
+            }
+        }
+        if (!includeUsExt || source == "SINA") return list
+        // 腾讯美股不含盘前/盘后，自动从新浪批量补齐并保留腾讯原有盘口与交易所后缀
+        val needExt = list.filter { StockCodes.isUs(it.code) && !StockCodes.isIndex(it.code) && !it.hasExtended }
+        if (needExt.isEmpty()) return list
+        val extMap = usExtendedQuotes(needExt.map { it.code })
+        if (extMap.isEmpty()) return list
+        return list.map { q ->
+            val ext = extMap[q.code]
+            if (ext != null && ext.hasExtended && (q.time.isEmpty() || ext.extTime >= q.time)) {
+                q.copy(
+                    extPrice = ext.extPrice,
+                    extChange = ext.extChange,
+                    extChangePct = ext.extChangePct,
+                    extSession = ext.extSession,
+                    extTime = ext.extTime,
+                )
+            } else {
+                q
             }
         }
     }

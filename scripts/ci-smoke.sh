@@ -370,7 +370,10 @@ sleep 1
 shot 12d-settings-stocks
 key KEYCODE_DPAD_RIGHT
 sleep 1
-shot 12e-settings-system
+shot 12e-settings-keys
+key KEYCODE_DPAD_RIGHT
+sleep 1
+shot 12f-settings-system
 key KEYCODE_BACK
 sleep 1
 

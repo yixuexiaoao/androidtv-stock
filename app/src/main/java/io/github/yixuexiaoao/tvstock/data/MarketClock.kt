@@ -36,6 +36,19 @@ object MarketClock {
         }
     }
 
+    /** 美股工作日盘前（04:00-09:29）或盘后（16:00-20:00），美东时间。 */
+    fun usExtendedSession(ms: Long): String {
+        if (isWeekend(ms, Markets.US)) return ""
+        val m = minute(ms, Markets.US)
+        return when {
+            m in (4 * 60) until (9 * 60 + 30) -> "PRE"
+            m in (16 * 60)..(20 * 60) -> "POST"
+            else -> ""
+        }
+    }
+
+    fun isUsExtendedTime(ms: Long): Boolean = usExtendedSession(ms).isNotEmpty()
+
     /** 工作日盘中保持亮屏，A 股午休也不例外：屏保启动后界面被停止，下午开盘不会自动回来。 */
     fun isKeepAwakeTime(ms: Long, market: String = Markets.CN): Boolean {
         if (isWeekend(ms, market)) return false

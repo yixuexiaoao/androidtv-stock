@@ -2,6 +2,7 @@ package io.github.yixuexiaoao.tvstock
 
 import io.github.yixuexiaoao.tvstock.data.HeatmapParser
 import io.github.yixuexiaoao.tvstock.model.HeatmapWeights
+import io.github.yixuexiaoao.tvstock.model.Quote
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -137,5 +138,29 @@ class HeatmapParserTest {
         assertEquals("计算机", stocks[0].groupName)
         assertEquals(-0.92, stocks[0].changePct, 1e-6)
         assertEquals(5071586054264.0, stocks[0].circCapYuan, 10.0)
+    }
+
+    @Test
+    fun applyUsExtendedUpdatesCloudItemsAndSessionLabel() {
+        val sample = """
+            {"rc":0,"data":{"total":2,"diff":[
+              {"f12":"AAPL","f13":105,"f14":"苹果","f2":349.21,"f3":-0.92,"f6":14301192448.0,"f20":5074783276220,"f21":5074783276220,"f100":"信息技术"},
+              {"f12":"NVDA","f13":105,"f14":"英伟达","f2":145.98,"f3":-3.30,"f6":48724731064.0,"f20":3524979059999,"f21":3524979059999,"f100":"信息技术"}
+            ]}}
+        """.trimIndent()
+        val base = HeatmapParser.parseEastMoneyUsStocks(sample)
+        val extMap = mapOf(
+            "usAAPL" to Quote("usAAPL", "苹果", 349.21, 352.45, 352.91, 355.28, 346.47, -3.24, -0.92, 1.0, 1.0, extPrice = 350.22, extChange = 1.01, extChangePct = 0.29, extSession = "PRE"),
+            "usNVDA" to Quote("usNVDA", "英伟达", 145.98, 150.96, 152.92, 158.13, 145.71, -4.98, -3.30, 1.0, 1.0, extPrice = 142.29, extChange = -3.69, extChangePct = -2.53, extSession = "PRE"),
+        )
+        val (label, merged) = HeatmapParser.applyUsExtended(base, extMap)
+        assertEquals("盘前", label)
+        assertEquals(350.22, merged[0].price, 1e-6)
+        assertEquals(0.29, merged[0].changePct, 1e-6)
+        assertEquals("盘前 350.22", merged[0].badge)
+        val sectors = HeatmapParser.aggregateUsSectors(merged)
+        assertEquals("苹果", sectors[0].leaderName)
+        assertEquals(1, sectors[0].upCount)
+        assertEquals(1, sectors[0].downCount)
     }
 }

@@ -4,6 +4,7 @@ import io.github.yixuexiaoao.tvstock.model.HeatmapGroup
 import io.github.yixuexiaoao.tvstock.model.HeatmapItem
 import io.github.yixuexiaoao.tvstock.model.HeatmapWeights
 import io.github.yixuexiaoao.tvstock.model.MarketBreadth
+import io.github.yixuexiaoao.tvstock.model.Quote
 import io.github.yixuexiaoao.tvstock.model.StockCodes
 import org.json.JSONArray
 import org.json.JSONObject
@@ -341,5 +342,36 @@ object HeatmapParser {
                 isSector = true,
             )
         }.sortedByDescending { it.weight }
+    }
+
+    /** 将新浪美股盘前/盘后报价同步覆盖到云图个股，返回 (时段中文标签, 更新后的个股列表)。 */
+    fun applyUsExtended(stocks: List<HeatmapItem>, extQuotes: Map<String, Quote>): Pair<String, List<HeatmapItem>> {
+        if (stocks.isEmpty() || extQuotes.isEmpty()) return "" to stocks
+        var preCount = 0
+        var postCount = 0
+        val updated = stocks.map { item ->
+            val ext = extQuotes[item.id]
+            if (ext != null && ext.hasExtended) {
+                if (ext.extSession == "PRE") preCount++ else if (ext.extSession == "POST") postCount++
+                val ep = ext.extPrice ?: item.price
+                val dec = if (ep > 0.0 && ep < 1.0) 4 else 2
+                val label = ext.extSessionLabel
+                item.copy(
+                    price = ep,
+                    decimals = dec,
+                    changePct = ext.extChangePct ?: item.changePct,
+                    extSession = ext.extSession,
+                    badge = "$label %.${dec}f".format(ep),
+                )
+            } else {
+                item
+            }
+        }
+        val sessionLabel = when {
+            preCount == 0 && postCount == 0 -> ""
+            preCount >= postCount -> "盘前"
+            else -> "盘后"
+        }
+        return sessionLabel to updated
     }
 }

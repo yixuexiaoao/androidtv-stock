@@ -194,6 +194,20 @@ class StockCellView(context: Context) : View(context) {
         return "$label ${Format.price(target, q.decimals)}(${Format.percent(distance)})"
     }
 
+    private fun extLine(q: Quote, compact: Boolean = false): Pair<String, Int>? {
+        if (!settings.usExtendedHours || !q.hasExtended) return null
+        val ep = q.extPrice ?: return null
+        val pct = q.extChangePct ?: 0.0
+        val chg = q.extChange ?: 0.0
+        val label = q.extSessionLabel
+        val text = if (compact) {
+            "$label ${Format.price(ep, q.decimals)} ${Format.trendPercent(pct)}"
+        } else {
+            "$label ${Format.price(ep, q.decimals)}  ${Format.signed(chg, q.decimals)}  ${Format.trendPercent(pct)}"
+        }
+        return text to palette.forChange(pct)
+    }
+
     private fun holdingLines(s: StockConfig, q: Quote): List<Pair<String, Int>> {
         if (!settings.showHoldings) return emptyList()
         val out = mutableListOf<Pair<String, Int>>()
@@ -272,7 +286,10 @@ class StockCellView(context: Context) : View(context) {
         c.drawText(pctText, changeX, y - paint.textSize * 1.25f, paint)
         c.drawText(changeText, changeX, y, paint)
 
-        val holdingRows = holdingLines(s, q)
+        val holdingRows = buildList {
+            extLine(q)?.let(::add)
+            addAll(holdingLines(s, q))
+        }
         val small = base * 0.95f
         val rowH = small * 1.42f
         val bottomLimit = h - pad - holdingRows.size * rowH
@@ -358,6 +375,7 @@ class StockCellView(context: Context) : View(context) {
         val rowH = small * 1.4f
         val rows = mutableListOf<Pair<String, Int>>()
         val roomy = h > base * 8.5f
+        extLine(q, compact = true)?.let { rows += it }
         if (mode == DisplayModes.MIXED && settings.showStats && roomy) {
             rows += "高 ${Format.priceOrDash(q.high, q.decimals)}  低 ${Format.priceOrDash(q.low, q.decimals)}  量 ${Format.volume(q)}  额 ${Format.amount(q)}" to palette.subText
         }
@@ -392,7 +410,10 @@ class StockCellView(context: Context) : View(context) {
         shrinkToFit(line, chartRight - x, base * 1.9f)
         c.drawText(line, x, y, paint)
 
-        val rows = holdingLines(s, q)
+        val rows = buildList {
+            extLine(q)?.let(::add)
+            addAll(holdingLines(s, q))
+        }
         val small = base * 1.05f
         val rowH = small * 1.45f
         chartRect.set(pad, y + base, chartRight, h - pad - rows.size * rowH)

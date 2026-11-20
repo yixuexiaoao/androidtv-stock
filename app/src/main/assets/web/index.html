@@ -125,6 +125,13 @@ a.btn{text-decoration:none;display:inline-block}
     <div class="card"><h2>提醒记录</h2><div id="alertLog" class="muted"></div></div>
   </section>
   <section id="tab-system"><div id="systemForm"></div>
+    <div class="card"><h2>遥控器按键自定义</h2>
+      <div class="grid" id="keyBindGrid"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn" id="resetKeysBtn">恢复默认按键</button>
+      </div>
+      <p class="hint">设为“无操作（禁用）”可避免电视遥控器误触发。如需录制其他实体按键，请在电视“设置 → 按键”中操作。</p>
+    </div>
     <div class="card"><h2>配置备份</h2>
       <div class="row">
         <button class="btn" id="exportBtn">导出配置</button>
@@ -260,6 +267,7 @@ const FORMS = () => ({
       ['privacy', 'check', '隐私模式（电视上隐藏持仓和盈亏金额）'],
     ]],
     ['刷新', [
+      ['usExtendedHours', 'check', '美股显示并同步盘前/盘后行情（自选与云图）'],
       ['refreshSec', 'number', '交易时段刷新间隔（秒）', {min:1,max:600}],
       ['idleRefreshSec', 'number', '非交易时段刷新间隔（秒）', {min:5,max:3600}],
       ['source', 'select', '行情来源', [{value:'AUTO',label:'自动（腾讯优先，失败切新浪）'},{value:'TENCENT',label:'腾讯'},{value:'SINA',label:'新浪'}]],
@@ -872,6 +880,31 @@ $('logClear').addEventListener('click', async () => {
 });
 
 /* ---------- 系统 ---------- */
+function renderKeyBindings() {
+  const box = $('keyBindGrid');
+  if (!box || !meta || !meta.presetKeys) return;
+  const overrides = state.settings.keyBindings || {};
+  const presetMap = new Map(meta.presetKeys.map(k => [String(k.code), k]));
+  const extraCodes = Object.keys(overrides).filter(c => !presetMap.has(c)).sort((a, b) => Number(a) - Number(b));
+  const items = [
+    ...meta.presetKeys.map(k => ({ code: String(k.code), label: k.label, def: k.defaultAction })),
+    ...extraCodes.map(c => ({ code: c, label: '自定义键 #' + c, def: 'NONE' })),
+  ];
+  box.replaceChildren(...items.map(k => {
+    const sel = el('select');
+    meta.keyActions.forEach(a => sel.append(el('option', { value: a.value }, a.label)));
+    sel.value = overrides[k.code] || k.def || 'NONE';
+    sel.addEventListener('change', () => {
+      const next = Object.assign({}, state.settings.keyBindings || {});
+      if (sel.value === (k.def || 'NONE')) delete next[k.code];
+      else next[k.code] = sel.value;
+      saveSettings({ keyBindings: next }).then(renderKeyBindings);
+    });
+    return el('label', { class: 'field' }, k.label, sel);
+  }));
+}
+$('resetKeysBtn').addEventListener('click', () => saveSettings({ keyBindings: {} }).then(renderKeyBindings));
+
 $('exportBtn').addEventListener('click', async () => {
   try {
     const data = await api('/api/export');
@@ -919,6 +952,7 @@ async function refresh() {
   if (before && before !== JSON.stringify(state.settings) && !document.activeElement.matches('input,select')) {
     renderForms();
     renderLayouts();
+    renderKeyBindings();
   }
   renderStocks();
   renderAlertLog();
@@ -931,6 +965,7 @@ async function refresh() {
 function renderAll() {
   renderForms();
   renderLayouts();
+  renderKeyBindings();
   initEditor();
   renderTestRow();
 }

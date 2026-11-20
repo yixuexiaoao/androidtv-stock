@@ -205,4 +205,21 @@ class ParserTest {
         assertEquals("贵州茅台", hits[0].name)
         assertTrue(QuoteParser.parseSuggest("v_hint=\"N\";").isEmpty())
     }
+
+    @Test fun sinaUsParsesPreMarketAndSkipsStaleExtendedDuringRegularSession() {
+        // 真实新浪盘前样本：常规收盘 Nov 19 04:00PM，盘前 Nov 20 07:14AM
+        val pre = "var hq_str_gb_nvda=\"英伟达,145.9800,-3.30,2026-11-20 20:14:56,-4.9800,152.9150,158.1301,145.7100,243.3700,148.8000,322940092,393846197,3524979059999,6.57,22.22,0,0,0,0,24147000000,69,142.2900,-2.53,-3.69,Nov 20 07:14AM EST,Nov 19 04:00PM EST,150.9600,6695800,1,2026,48627421548\";"
+        val q = QuoteParser.parseSina(pre).single()
+        assertTrue(q.hasExtended)
+        assertEquals("PRE", q.extSession)
+        assertEquals("盘前", q.extSessionLabel)
+        assertEquals(142.29, q.extPrice!!, 1e-6)
+        assertEquals(-2.53, q.extChangePct!!, 1e-6)
+        assertEquals(-3.69, q.extChange!!, 1e-6)
+
+        // 若常规成交时间已进入盘中（10:30AM）晚于早上盘前（07:14AM），应过滤过时盘前价
+        val regular = "var hq_str_gb_nvda=\"英伟达,144.0000,-1.30,2026-11-20 23:30:00,-1.9800,143.0000,146.0000,142.0000,243.3700,148.8000,322940092,393846197,3524979059999,6.57,22.22,0,0,0,0,24147000000,69,142.2900,-2.53,-3.69,Nov 20 07:14AM EST,Nov 20 10:30AM EST,145.9800,6695800,1,2026,48627421548\";"
+        val qReg = QuoteParser.parseSina(regular).single()
+        assertTrue(!qReg.hasExtended)
+    }
 }

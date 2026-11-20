@@ -252,7 +252,7 @@ object StockDialogs {
         "数字键：切换画面数；云图下按 * 或 0 键切换 A股/美股云图\n" +
         "顶部标签：云图 | A股 | 美股 | 设置；自选下 * 键切换市场\n" +
         "频道键：翻页/切云图范围；菜单键：设置\n" +
-        "红键静音，绿键隐私，黄键排序/范围，蓝键布局/面积"
+        "绿键隐私，黄键排序/范围，蓝键布局/面积；全部快捷键可在“设置 → 按键”自定义"
 
     fun menu(activity: Activity, title: String, items: List<Pair<String, () -> Unit>>) {
         builder(activity)

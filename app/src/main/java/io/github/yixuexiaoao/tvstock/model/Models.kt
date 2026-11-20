@@ -273,6 +273,10 @@ data class AppSettings(
     val webPin: String = "",
     val updateChannel: String = "AUTO",
     val updateAutoCheck: Boolean = true,
+    /** 美股是否显示并同步盘前/盘后行情（自选与云图均生效） */
+    val usExtendedHours: Boolean = true,
+    /** 自定义遥控器按键映射（keyCode -> KeyActions.*）；空表示全走默认映射 */
+    val keyBindings: Map<Int, String> = emptyMap(),
     val logVerbose: Boolean = false,
 ) {
     fun effectiveLayout(): GridLayoutDef = Layouts.resolve(layoutId, customLayout)
@@ -337,6 +341,8 @@ data class AppSettings(
         put("webPin", webPin)
         put("updateChannel", updateChannel)
         put("updateAutoCheck", updateAutoCheck)
+        put("usExtendedHours", usExtendedHours)
+        if (keyBindings.isNotEmpty()) put("keyBindings", KeyBindings.toJson(keyBindings))
         put("logVerbose", logVerbose)
     }
 
@@ -408,6 +414,8 @@ data class AppSettings(
             webPin = if (json.has("webPin")) json.optString("webPin", "").trim().take(32) else webPin,
             updateChannel = choice("updateChannel", updateChannel, listOf("AUTO", "STABLE", "PRE")),
             updateAutoCheck = bool("updateAutoCheck", updateAutoCheck),
+            usExtendedHours = bool("usExtendedHours", usExtendedHours),
+            keyBindings = if (json.has("keyBindings")) KeyBindings.fromJson(json.optJSONObject("keyBindings")) else keyBindings,
             logVerbose = bool("logVerbose", logVerbose),
         )
     }
@@ -538,11 +546,28 @@ data class Quote(
     val decimals: Int = 2,
     /** 美股带交易所后缀的代码，如 AAPL.OQ，取 K 线时需要 */
     val exchange: String = "",
+    /** 美股盘前/盘后最新价 */
+    val extPrice: Double? = null,
+    /** 美股盘前/盘后涨跌额（相对常规收盘价） */
+    val extChange: Double? = null,
+    /** 美股盘前/盘后涨跌幅 % */
+    val extChangePct: Double? = null,
+    /** 盘前 PRE / 盘后 POST / 空表示无 */
+    val extSession: String = "",
+    /** 盘前/盘后时间（yyyyMMddHHmmss 美东时间） */
+    val extTime: String = "",
 ) {
     val hasTrade: Boolean get() = price > 0
     /** 用于显示：未成交时回退到昨收。 */
     val displayPrice: Double get() = if (hasTrade) price else prevClose
     val tradeDate: String get() = time.take(8)
+    val hasExtended: Boolean get() = (extPrice ?: 0.0) > 0.0 && extSession.isNotEmpty()
+    val extSessionLabel: String
+        get() = when (extSession) {
+            "PRE" -> "盘前"
+            "POST" -> "盘后"
+            else -> ""
+        }
 }
 
 data class MinutePoint(val hhmm: String, val price: Double, val cumVolume: Double, val cumAmount: Double) {

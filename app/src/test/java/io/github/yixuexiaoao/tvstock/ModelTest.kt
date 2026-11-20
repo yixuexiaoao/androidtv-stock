@@ -372,5 +372,18 @@ class ModelTest {
         assertFalse(StockCodes.isIndex("sh600519"))
         assertFalse(StockCodes.isIndex("sz000001"))
         assertFalse(StockCodes.isIndex("usAAPL"))
+
+        assertTrue(d.usExtendedHours)
+        assertFalse(d.merged(JSONObject("""{"usExtendedHours":false}""")).usExtendedHours)
+        val kb = d.merged(JSONObject("""{"keyBindings":{"183":"TOGGLE_MUTE","4":"OPEN_CLOUD"}}""")).keyBindings
+        assertEquals(mapOf(183 to "TOGGLE_MUTE"), kb)
+
+        // 美东时间盘前(07:15)、盘中(10:00)、盘后(17:30)
+        fun ny(y: Int, mo: Int, d: Int, h: Int, mi: Int): Long =
+            Calendar.getInstance(TimeZone.getTimeZone("America/New_York")).apply { set(y, mo - 1, d, h, mi, 0) }.timeInMillis
+        assertEquals("PRE", MarketClock.usExtendedSession(ny(2026, 11, 20, 7, 15)))
+        assertEquals("", MarketClock.usExtendedSession(ny(2026, 11, 20, 10, 0)))
+        assertEquals("POST", MarketClock.usExtendedSession(ny(2026, 11, 20, 17, 30)))
+        assertEquals("", MarketClock.usExtendedSession(ny(2026, 11, 21, 7, 15)))
     }
 }

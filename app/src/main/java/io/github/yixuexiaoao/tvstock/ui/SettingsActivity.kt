@@ -26,6 +26,8 @@ import io.github.yixuexiaoao.tvstock.model.CloudScopes
 import io.github.yixuexiaoao.tvstock.model.DisplayModes
 import io.github.yixuexiaoao.tvstock.model.HeatmapWeights
 import io.github.yixuexiaoao.tvstock.model.HomeTabs
+import io.github.yixuexiaoao.tvstock.model.KeyActions
+import io.github.yixuexiaoao.tvstock.model.KeyBindings
 import io.github.yixuexiaoao.tvstock.model.Layouts
 import io.github.yixuexiaoao.tvstock.model.Markets
 import io.github.yixuexiaoao.tvstock.model.StockCodes
@@ -57,6 +59,7 @@ class SettingsActivity : Activity(), AppCore.Listener {
     private var tabIndex = 0
     private var builtPalette: Palette? = null
     private var builtStocks: List<StockConfig>? = null
+    private var builtKeyCodes: Set<Int>? = null
     private val palette: Palette get() = Palette.of(settings)
     private val rows = ArrayList<Pair<TextView, Row>>()
 
@@ -92,8 +95,12 @@ class SettingsActivity : Activity(), AppCore.Listener {
     }
 
     override fun onConfig() {
-        // 股票列表变化（含 Web 后台的修改）才需要重建，其他只刷新文字
-        if (AppCore.config.stocks != builtStocks) rebuild(currentIndex()) else refreshTexts()
+        // 股票列表或自定义按键集合变化时重建列表，其他只刷新文字
+        if (AppCore.config.stocks != builtStocks || settings.keyBindings.keys != builtKeyCodes) {
+            rebuild(currentIndex())
+        } else {
+            refreshTexts()
+        }
     }
 
     override fun onUpdate() {
@@ -187,6 +194,7 @@ class SettingsActivity : Activity(), AppCore.Listener {
             ),
             "行情" to listOf(
                 choice("首页市场", Markets.ALL, { settings.market }, Markets::label, "market"),
+                toggle("美股盘前盘后行情", { settings.usExtendedHours }, "usExtendedHours"),
                 number("交易时段刷新", listOf(1, 2, 3, 5, 10, 15, 30, 60, 120, 300), { settings.refreshSec }, "秒", "refreshSec"),
                 number("非交易时段刷新", listOf(5, 30, 60, 300, 600, 1800, 3600), { settings.idleRefreshSec }, "秒", "idleRefreshSec"),
                 choice("行情来源", listOf("AUTO", "TENCENT", "SINA"), { settings.source }, { mapOf("AUTO" to "自动", "TENCENT" to "腾讯", "SINA" to "新浪")[it] ?: it }, "source"),
@@ -220,6 +228,7 @@ class SettingsActivity : Activity(), AppCore.Listener {
                 }),
             ),
             "自选股" to stockRows,
+            "按键" to keyBindingRows(),
             "系统" to listOf(
                 Row("使用帮助", { "遥控器按键说明" }, onOk = { StockDialogs.help(this) }),
                 Row("最近提醒", { "查看" }, onOk = { StockDialogs.recentAlerts(this) }),
@@ -262,6 +271,7 @@ class SettingsActivity : Activity(), AppCore.Listener {
         val tabWasFocused = tabs.any { it.isFocused }
         builtPalette = palette
         builtStocks = AppCore.config.stocks
+        builtKeyCodes = settings.keyBindings.keys
         root.setBackgroundColor(palette.background)
         root.removeAllViews()
         root.addView(TextView(this).apply {
@@ -480,6 +490,77 @@ class SettingsActivity : Activity(), AppCore.Listener {
             "删除" to { AppCore.deleteStock(code) },
         )
         StockDialogs.menu(this, StockCodes.shortCode(code), items)
+    }
+
+    private fun keyBindingRows(): List<Row> {
+        val customOnly = settings.keyBindings.keys.filter { it !in KeyBindings.PRESET_KEYS }.sorted()
+        val allKeys = KeyBindings.PRESET_KEYS + customOnly
+        return buildList {
+            add(Row("＋ 录制遥控器按键", { "按下任意实体键绑定功能" }, onOk = ::recordKeyDialog))
+            allKeys.forEach { code ->
+                add(
+                    Row(
+                        label = KeyBindings.keyLabel(code),
+                        value = {
+                            val act = KeyBindings.resolve(settings.keyBindings, code) ?: KeyActions.NONE
+                            KeyActions.label(act)
+                        },
+                        onStep = { d ->
+                            val cur = KeyBindings.resolve(settings.keyBindings, code) ?: KeyActions.NONE
+                            setKeyBinding(code, stepped(KeyActions.ALL, cur, d))
+                        },
+                        onOk = { chooseKeyActionDialog(code) },
+                    ),
+                )
+            }
+            add(Row("恢复默认按键", { "重置所有按键映射" }, onOk = {
+                put("keyBindings", JSONObject())
+                Toast.makeText(this@SettingsActivity, "已恢复默认按键", Toast.LENGTH_SHORT).show()
+            }))
+        }
+    }
+
+    private fun setKeyBinding(keyCode: Int, action: String) {
+        val next = LinkedHashMap(settings.keyBindings)
+        val defaultAction = KeyBindings.DEFAULTS[keyCode]
+        if (defaultAction != null && action == defaultAction) {
+            next.remove(keyCode)
+        } else if (defaultAction == null && action == KeyActions.NONE) {
+            next.remove(keyCode)
+        } else {
+            next[keyCode] = action
+        }
+        put("keyBindings", KeyBindings.toJson(next))
+    }
+
+    private fun chooseKeyActionDialog(keyCode: Int) {
+        val items = KeyActions.ALL.map { action ->
+            KeyActions.label(action) to { setKeyBinding(keyCode, action) }
+        }
+        StockDialogs.menu(this, "绑定 ${KeyBindings.keyLabel(keyCode)}", items)
+    }
+
+    private fun recordKeyDialog() {
+        val d = dialog()
+            .setTitle("录制遥控器按键")
+            .setMessage("请按下遥控器上要自定义的实体按键（方向键、确认键、返回键和音量键不可覆盖）。")
+            .setNegativeButton("取消", null)
+            .create()
+        d.setOnKeyListener { dialogInterface, keyCode, event ->
+            if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+            if (keyCode == KeyEvent.KEYCODE_BACK) {
+                dialogInterface.dismiss()
+                return@setOnKeyListener true
+            }
+            if (!KeyBindings.isAllowed(keyCode)) {
+                Toast.makeText(this, "该系统/导航键不可自定义，请按其他实体键", Toast.LENGTH_SHORT).show()
+                return@setOnKeyListener true
+            }
+            dialogInterface.dismiss()
+            chooseKeyActionDialog(keyCode)
+            true
+        }
+        d.show()
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()

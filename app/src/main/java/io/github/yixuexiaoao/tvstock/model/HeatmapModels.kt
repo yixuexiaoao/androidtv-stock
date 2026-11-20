@@ -104,8 +104,10 @@ data class HeatmapItem(
     val leaderPct: Double = 0.0,
     /** true 表示这是一个可下钻的行业板块；false 表示可放大查看的个股 */
     val isSector: Boolean = false,
-    /** 可选副标签（如自选股的持仓盈亏或代码简称） */
+    /** 可选副标签（如自选股的持仓盈亏或盘前/盘后价） */
     val badge: String = "",
+    /** 盘前/盘后时段标记（PRE / POST / 空） */
+    val extSession: String = "",
 )
 
 /** 二级嵌套分组（例如行业名称 + 该行业下的成分股列表）。 */
@@ -130,6 +132,8 @@ data class HeatmapSnapshot(
     val items: List<HeatmapItem> = emptyList(),
     /** 成分股/指数视图按行业自动分组后的两级结构；行业宏观视图为空 */
     val groups: List<HeatmapGroup> = emptyList(),
+    /** 非空时在云图标题中标注时段（如“盘前”/“盘后”） */
+    val sessionLabel: String = "",
 ) {
     val isGrouped: Boolean get() = groups.isNotEmpty()
 }

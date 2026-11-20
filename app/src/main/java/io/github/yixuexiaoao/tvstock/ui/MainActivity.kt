@@ -31,6 +31,8 @@ import io.github.yixuexiaoao.tvstock.model.HeatmapItem
 import io.github.yixuexiaoao.tvstock.model.HeatmapWeights
 import io.github.yixuexiaoao.tvstock.model.Holding
 import io.github.yixuexiaoao.tvstock.model.HomeTabs
+import io.github.yixuexiaoao.tvstock.model.KeyActions
+import io.github.yixuexiaoao.tvstock.model.KeyBindings
 import io.github.yixuexiaoao.tvstock.model.Layouts
 import io.github.yixuexiaoao.tvstock.model.MarketBreadth
 import io.github.yixuexiaoao.tvstock.model.Markets
@@ -93,6 +95,8 @@ class MainActivity : Activity(), AppCore.Listener {
     private var appliedTheme = ""
     private var screenKept: Boolean? = null
     private var lastSoundMs = 0L
+    private var lastActionKey = -1
+    private var lastActionMs = 0L
 
     private val clockTick = object : Runnable {
         override fun run() {
@@ -414,7 +418,15 @@ class MainActivity : Activity(), AppCore.Listener {
             return
         }
         val s = config.settings
-        AppCore.heatmap.activate(s.cloudMarket, activeCloudScope(), drillSectorId, drillSectorName, s.heatmapWeight, forceRefresh)
+        AppCore.heatmap.activate(
+            market = s.cloudMarket,
+            scope = activeCloudScope(),
+            sectorId = drillSectorId,
+            sectorName = drillSectorName,
+            weight = s.heatmapWeight,
+            forceRefresh = forceRefresh,
+            usExtendedHours = s.usExtendedHours,
+        )
     }
 
     private fun bindHeatmap() {
@@ -430,10 +442,11 @@ class MainActivity : Activity(), AppCore.Listener {
             val scopeLabel = if (isUs) UsCloudScopes.label(scope) else CloudScopes.label(scope)
             val marketLabel = Markets.label(cm)
             val otherLabel = Markets.label(Markets.other(cm))
+            val sessionTag = snap?.sessionLabel?.takeIf { it.isNotEmpty() }?.let { "（$it）" }.orEmpty()
             val title = if (drillSectorId != null) {
-                "$marketLabel · $drillSectorName › 成分股"
+                "$marketLabel · $drillSectorName › 成分股$sessionTag"
             } else {
-                "${marketLabel}大盘云图 · $scopeLabel"
+                "${marketLabel}大盘云图 · $scopeLabel$sessionTag"
             }
             val wLabel = HeatmapWeights.label(if (s.heatmapWeight == HeatmapWeights.AMOUNT) HeatmapWeights.AMOUNT else HeatmapWeights.CIRC_CAP)
             val updated = if (snap != null && snap.fetchedAtMs > 0L) {
@@ -442,11 +455,12 @@ class MainActivity : Activity(), AppCore.Listener {
             } else {
                 ""
             }
+            val switchHint = KeyBindings.hintFor(s.keyBindings, KeyActions.TOGGLE_CLOUD_MARKET)
             val isSectorLevel = (isUs && scope == UsCloudScopes.SECTORS) || (!isUs && scope == CloudScopes.SECTORS)
             val hint = when {
-                drillSectorId != null -> "确认:放大  返回:行业  */0键:切$otherLabel  蓝键:面积"
-                isSectorLevel -> "确认:下钻  */0键:切$otherLabel  黄键:范围  蓝键:面积"
-                else -> "确认:放大  */0键:切$otherLabel  黄键:范围  蓝键:面积"
+                drillSectorId != null -> "确认:放大  返回:行业  ${switchHint}键:切$otherLabel  蓝键:面积"
+                isSectorLevel -> "确认:下钻  ${switchHint}键:切$otherLabel  黄键:范围  蓝键:面积"
+                else -> "确认:放大  ${switchHint}键:切$otherLabel  黄键:范围  蓝键:面积"
             }
             heatmapView.bind(
                 title = title,
@@ -504,11 +518,20 @@ class MainActivity : Activity(), AppCore.Listener {
         var flat = 0
         var down = 0
         var totalAmt = 0.0
+        val useUsExt = isUsd && s.usExtendedHours && !MarketClock.isTradingTime(System.currentTimeMillis(), Markets.US)
+        var extLabelForTitle = ""
         val items = stocks.map { stock ->
             val q = quotes[stock.code]
             val isIndex = StockCodes.isIndex(stock.code)
-            val pct = if (q != null && q.hasTrade) q.changePct else 0.0
-            if (q != null && q.hasTrade) {
+            val hasExt = useUsExt && q != null && q.hasExtended
+            if (hasExt && extLabelForTitle.isEmpty()) extLabelForTitle = q!!.extSessionLabel
+            val pct = when {
+                hasExt -> q!!.extChangePct ?: 0.0
+                q != null && q.hasTrade -> q.changePct
+                else -> 0.0
+            }
+            val dispPrice = if (hasExt) q!!.extPrice ?: q.displayPrice else q?.displayPrice ?: 0.0
+            if (hasExt || (q != null && q.hasTrade)) {
                 when {
                     pct > 0.0 -> up++
                     pct < 0.0 -> down++
@@ -525,25 +548,26 @@ class MainActivity : Activity(), AppCore.Listener {
                 HeatmapWeights.HOLDING -> holding?.marketValue?.takeIf { it > 0.0 } ?: 1.0
                 else -> if (isIndex) medianCap else circYuan.takeIf { it > 0.0 } ?: medianCap
             }
-            val badge = if (!s.privacy && s.showHoldings && holding?.profitPct != null) {
-                "持仓 " + Format.percent(holding.profitPct)
-            } else {
-                ""
+            val badge = when {
+                hasExt -> "${q!!.extSessionLabel} ${Format.price(dispPrice, q.decimals)}"
+                !s.privacy && s.showHoldings && holding?.profitPct != null -> "持仓 " + Format.percent(holding.profitPct)
+                else -> ""
             }
             HeatmapItem(
                 id = stock.code,
                 name = stock.alias.ifBlank { q?.name ?: StockCodes.shortCode(stock.code) },
                 changePct = pct,
                 weight = w,
-                price = q?.displayPrice ?: 0.0,
+                price = dispPrice,
                 decimals = q?.decimals ?: 2,
                 amountYuan = amtYuan,
                 circCapYuan = circYuan,
                 badge = badge,
+                extSession = if (hasExt) q!!.extSession else "",
                 isSector = false,
             )
         }
-        val title = Markets.label(s.market) + " 自选热力图"
+        val title = Markets.label(s.market) + " 自选热力图" + if (extLabelForTitle.isNotEmpty()) "（$extLabelForTitle）" else ""
         heatmapView.bind(
             title = title,
             weightLabel = HeatmapWeights.label(modeForWeight),
@@ -918,7 +942,8 @@ class MainActivity : Activity(), AppCore.Listener {
         drillSectorName = ""
         lastSectorId = null
         AppCore.updateSettings(JSONObject().put("homeTab", HomeTabs.CLOUD).put("cloudMarket", next))
-        toast("已切换到" + Markets.label(next) + "云图（按 */0 键切换）")
+        val keyHint = KeyBindings.hintFor(config.settings.keyBindings, KeyActions.TOGGLE_CLOUD_MARKET)
+        toast("已切换到" + Markets.label(next) + "云图（按 ${keyHint}键切换）")
     }
 
     private fun cycleCloudScope(delta: Int = 1) {
@@ -1225,6 +1250,9 @@ class MainActivity : Activity(), AppCore.Listener {
 
     private var swallowUpKey = -1
 
+    private fun isDpadKey(key: Int): Boolean = key == KeyEvent.KEYCODE_DPAD_UP ||
+        key == KeyEvent.KEYCODE_DPAD_DOWN || key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT
+
     private fun handleKey(event: KeyEvent): Boolean {
         val key = event.keyCode
         AppLog.d("Key", "${KeyEvent.keyCodeToString(key)} repeat=${event.repeatCount}")
@@ -1234,16 +1262,16 @@ class MainActivity : Activity(), AppCore.Listener {
             swallowUpKey = key
             return true
         }
+        if (key == KeyEvent.KEYCODE_BACK) {
+            if (event.repeatCount > 0) return true
+            onBackKey()
+            swallowUpKey = key
+            return true
+        }
+        // 非方向键、非确认键过滤长按重复事件，避免快捷操作被连发多次
+        if (event.repeatCount > 0 && !isDpadKey(key) && !isConfirm) return true
+
         when (key) {
-            KeyEvent.KEYCODE_BACK -> {
-                onBackKey()
-                swallowUpKey = key
-                return true
-            }
-            KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_SETTINGS -> {
-                openSettings()
-                return true
-            }
             KeyEvent.KEYCODE_CHANNEL_UP, KeyEvent.KEYCODE_PAGE_UP -> {
                 when {
                     zoomCode != null -> zoomStep(-1)
@@ -1260,43 +1288,22 @@ class MainActivity : Activity(), AppCore.Listener {
                 }
                 return true
             }
-            KeyEvent.KEYCODE_0, KeyEvent.KEYCODE_NUMPAD_0 -> {
-                when {
-                    isCloudActive() -> toggleCloudMarket()
-                    config.settings.homeTab == HomeTabs.WATCH && zoomCode == null && config.settings.watchHeatmap -> toggleWatchHeatmap()
-                    else -> cycleDisplayMode()
-                }
-                return true
-            }
-            KeyEvent.KEYCODE_STAR -> {
-                if (isCloudActive()) {
-                    toggleCloudMarket()
-                } else {
-                    setMarket(Markets.other(config.settings.market), enterWatch = true)
-                }
-                return true
-            }
-            KeyEvent.KEYCODE_PROG_RED -> {
-                toggleMute()
-                return true
-            }
-            KeyEvent.KEYCODE_PROG_GREEN -> {
-                togglePrivacy()
-                return true
-            }
-            KeyEvent.KEYCODE_PROG_YELLOW -> {
-                if (isCloudActive()) cycleCloudScope() else cycleSort()
-                return true
-            }
-            KeyEvent.KEYCODE_PROG_BLUE -> {
-                if (showingHeatmap()) cycleHeatmapWeight() else cycleLayout()
-                return true
-            }
-            KeyEvent.KEYCODE_INFO, KeyEvent.KEYCODE_GUIDE -> {
-                showWebQr()
-                return true
-            }
         }
+
+        // 数字小键盘 0 归一化为 KEYCODE_0 走统一按键映射
+        val normalizedKey = if (key == KeyEvent.KEYCODE_NUMPAD_0) KeyEvent.KEYCODE_0 else key
+        val overrides = config.settings.keyBindings
+        val action = KeyBindings.resolve(overrides, normalizedKey)
+        if (action != null) {
+            val now = System.currentTimeMillis()
+            // 350ms 防抖：屏蔽蓝牙/红外遥控器短时双发同一功能键
+            if (normalizedKey == lastActionKey && now - lastActionMs < KEY_DEBOUNCE_MS) return true
+            lastActionKey = normalizedKey
+            lastActionMs = now
+            executeKeyAction(action, normalizedKey, isCustom = overrides.containsKey(normalizedKey))
+            return true
+        }
+
         val digit = when (key) {
             in KeyEvent.KEYCODE_1..KeyEvent.KEYCODE_9 -> key - KeyEvent.KEYCODE_0
             in KeyEvent.KEYCODE_NUMPAD_1..KeyEvent.KEYCODE_NUMPAD_9 -> key - KeyEvent.KEYCODE_NUMPAD_0
@@ -1310,6 +1317,52 @@ class MainActivity : Activity(), AppCore.Listener {
             return handleHeatmapDpad(key)
         }
         return if (zoomCode != null) handleZoomDpad(key) else handleGridDpad(key)
+    }
+
+    /** 执行绑定动作；未显式覆盖的默认键保留语境适配，用户显式自定义时严格按目标动作执行。 */
+    private fun executeKeyAction(action: String, keyCode: Int, isCustom: Boolean) {
+        if (!isCustom) {
+            when (keyCode) {
+                KeyBindings.KEY_0 -> {
+                    when {
+                        isCloudActive() -> toggleCloudMarket()
+                        config.settings.homeTab == HomeTabs.WATCH && zoomCode == null && config.settings.watchHeatmap -> toggleWatchHeatmap()
+                        else -> cycleDisplayMode()
+                    }
+                    return
+                }
+                KeyBindings.KEY_STAR -> {
+                    if (isCloudActive()) toggleCloudMarket() else setMarket(Markets.other(config.settings.market), enterWatch = true)
+                    return
+                }
+                KeyBindings.KEY_PROG_YELLOW -> {
+                    if (isCloudActive()) cycleCloudScope() else cycleSort()
+                    return
+                }
+                KeyBindings.KEY_PROG_BLUE -> {
+                    if (showingHeatmap()) cycleHeatmapWeight() else cycleLayout()
+                    return
+                }
+            }
+        }
+        when (action) {
+            KeyActions.NONE -> Unit
+            KeyActions.TOGGLE_CLOUD_MARKET -> toggleCloudMarket()
+            KeyActions.OPEN_CLOUD -> openCloudTab()
+            KeyActions.SWITCH_WATCH_MARKET -> setMarket(Markets.other(config.settings.market), enterWatch = true)
+            KeyActions.TOGGLE_WATCH_HEATMAP -> toggleWatchHeatmap()
+            KeyActions.CYCLE_CLOUD_SCOPE -> {
+                if (config.settings.homeTab != HomeTabs.CLOUD) openCloudTab() else cycleCloudScope()
+            }
+            KeyActions.CYCLE_HEATMAP_WEIGHT -> cycleHeatmapWeight()
+            KeyActions.CYCLE_LAYOUT -> cycleLayout()
+            KeyActions.CYCLE_DISPLAY_MODE -> cycleDisplayMode()
+            KeyActions.CYCLE_SORT -> cycleSort()
+            KeyActions.TOGGLE_PRIVACY -> togglePrivacy()
+            KeyActions.TOGGLE_MUTE -> toggleMute()
+            KeyActions.SHOW_QR -> showWebQr()
+            KeyActions.OPEN_SETTINGS -> openSettings()
+        }
     }
 
     private fun handleHeatmapDpad(key: Int): Boolean {
@@ -1395,6 +1448,7 @@ class MainActivity : Activity(), AppCore.Listener {
 
     private companion object {
         const val MUTE_MINUTES = 30
+        const val KEY_DEBOUNCE_MS = 350L
         /** 等 Web 服务启动后再弹引导，这样二维码能显示 */
         const val GUIDE_DELAY_MS = 1500L
         /** 同一轮多只股票同时触发时只播一次，避免声音混在一起 */
