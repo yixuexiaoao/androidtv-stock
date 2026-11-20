@@ -1,0 +1,432 @@
+--------- beginning of main
+11-20 12:34:49.547  5687  5687 I AndroidRuntime: Using default boot image
+11-20 12:34:49.547  5687  5687 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.disable_lock_profiling"
+11-20 12:34:49.547  5687  5687 I AndroidRuntime: Leaving lock profiling enabled
+11-20 12:34:49.547  5687  5687 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.enable_generational_cc"
+11-20 12:34:49.544  5687  5687 W app_process: type=1400 audit(0.0:239): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=1198 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+11-20 12:34:49.544  5687  5687 I chatty  : uid=2000(shell) app_process identical 2 lines
+11-20 12:34:49.544  5687  5687 W app_process: type=1400 audit(0.0:242): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=1198 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+11-20 12:34:49.588  5687  5687 D app_process: Time zone APEX ICU file found: /apex/com.android.tzdata/etc/icu/icu_tzdata.dat
+11-20 12:34:49.588  5687  5687 D app_process: I18n APEX ICU file found: /apex/com.android.i18n/etc/icu/icudt66l.dat
+11-20 12:34:49.591  5687  5687 W app_process: Unexpected CPU variant for X86 using defaults: x86
+11-20 12:34:49.591  5687  5687 I app_process: The ClassLoaderContext is a special shared library.
+11-20 12:34:49.598  5687  5687 W app_process: JNI RegisterNativeMethods: attempt to register 0 native methods for android.media.AudioAttributes
+11-20 12:34:49.601  5687  5687 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-20 12:34:49.604  1036  1036 I GoogleInputMethodService: GoogleInputMethodService.onFinishInput():3466 
+11-20 12:34:49.604  1036  1036 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():2045 
+11-20 12:34:49.604   473  3948 I system_server: oneway function results will be dropped but finished with status OK and parcel size 4
+11-20 12:34:49.605   473  3948 I system_server: oneway function results will be dropped but finished with status OK and parcel size 4
+11-20 12:34:49.605  1036  1036 I DeviceUnlockedTag: DeviceUnlockedTag.notifyDeviceLockStatusChanged():38 Notify device unlocked.
+11-20 12:34:49.605  5687  5687 D AndroidRuntime: Shutting down VM
+11-20 12:34:49.738   473  2793 I system_server: oneway function results will be dropped but finished with status OK and parcel size 4
+11-20 12:34:50.776   282   282 I WVCdm   : [cdm_engine.cpp(114):OpenSession] Opening session
+11-20 12:34:50.776   282   282 D WVCdm   : [crypto_session.cpp(714):Open] Opening crypto session: requested_security_level = Default
+11-20 12:34:50.777   282   282 I WVCdm   : [cdm_engine.cpp(148):OpenSession] New session ID: sid7
+11-20 12:34:50.777   282   282 I WVCdm   : [cdm_engine.cpp(871):QueryOemCryptoSessionId] Querying OEMCrypto Session ID: session_id = sid7
+11-20 12:34:50.778   282   282 I WVCdm   : [cdm_engine.cpp(194):CloseSession] Closing session: session_id = sid7
+11-20 12:34:50.778  2405  2497 I cr_ClientAuthCredsWidevine: ensureProvisioned: already provisioned, nothing more to do.
+11-20 12:34:50.778   282   282 I WVCdm   : [cdm_engine.cpp(911):GetProvisioningRequest] Getting provisioning request
+11-20 12:34:50.778   282   282 D WVCdm   : [crypto_session.cpp(714):Open] Opening crypto session: requested_security_level = Default
+11-20 12:34:50.816  2405  2497 D cr_ClientAuthCredsWidevine: [ClientAuthCredsWidevine.java:276] PostRequest:https://www.googleapis.com/certificateprovisioning/v1/devicecertificates/create?key=AIzaSyB-5OLKTx2iU5mko18DfdwK5611JIjbUhE&signedRequest=CugYEgQJyVU2GhMIARIPY2FzdC5nb29nbGUuY29tKqgYCgx3aWRldmluZS5jb20SEFFDT-KkTHY7zCyCai1u-aca8BVvDJClHbIytYTeUqmNHL9hviculuQgPDYLgngp-m0Tj5jvF4RxxriW3WhGnsAAPkyKLFHhHP2CHRYinrUY6o8c5tMlqZYqKIDRMUpQwbvALs9ceOxiLGD_Nf21T5axvQuxx_Ek10DmIEJ2qtEUQ2KYwqnurqDzuBvSGdAs8s7LNkGHHRXJWLetGj77GY-aqPfII5kvDwQ5hpd29WVkbqNBVgLfHaIF9szBfhjlu245ItrX77DLTVFWuSjOaLhaswgT3Ub53GAu2ckalnsxxAKVYOC30T3Ajb4iCRFoZa4YWEHF9YDa27sW3apReW-NQuBwWuz-uNIYN76mhTa3SVsPAfyNWFg4eI3Aku3gClr8edqhbCuF_nXDvY-a_PiQEaxv7RlNviQvoxq940qSWxTbNeYVuj5_reeJewaJDNPiMrn9Rd1FKKVYzxBlZzHIsh14aAW51eqKJo1GQgtT_fmjcvJsHcD6rrBNm-Ugy5uaUQg9v5HfOwsWkZG4UdDuinceaGrbcjD1louksnNBp5o2uGlaTYrCsE6D6TNE39sdxvwYdNQwZJfjMLLAH5tKqpTCkRivAc2M3xzyJYHI8IFPeNINGvFhkB61lfMC9bP9zmRWUDL5TyBGfA8LuQ9XreKmJP9QQWPgY9LYGOn-IdhSQErLhvLUSpnSmgarkIA69ECPZUkZKIvltM0T9C56SeJITWRAlWyG2MMMc7OURDRtEd7mHp1SVv3_ObaQuUyHw1kKGxcLh6niNqPkbuMXazJ2giKXbNP86YCZBVi_qc50fcaIRIM3cXIFBrZ1lH_emitBHPNkDYWdVf77d9pf9RYHsthnsklr397RZfIjeycrZ-Al-R5BjZyXK2WtEqClqwtQ6btmlCqS6L6ko0tJYa5jCyMTD6XEJgGd16PgLLaCcVQ8gBRb6KPq2is1GUjpra_hIgNkwS5K1fTk5_iQ8U7iV1fCMTPPZrc8COba7T-uXGbKqR9juBrZqHLluKOGPAZ_mCtAv9Czrt4vrSrsdeUUdef1J327fP14ItVP3dnQr5XK7_Vgi4dKSX1iY5EY3v4wHzr8hG-7YJY-teANuPkYJKZNF0yvOp2FLvrKUp1ogS-FFq6NRi9K_NGZ6mWM1c4gKn8BQFM7WxRxwJfToGAJLPzAaIQ5uALjRx4yKr994DWQFZLi9fyU8GYfCpVXg5sO-f-t0g_JK4snq38oDG_Tncx2kvWNyL-ULaRRZTnvwz005_xj_X18Xk0jDTW1wRls94IBw8aI--KRCrDN7FEO2d3k_N-dSXWZ0BDfmGDXnKfzU7Kvt9yuFvPFdL-fjaoSdg_XK7EZ2l70T1u_lcPO4hki4gcz_MjgBtakQOd3fi7P6zx7W_cN8Mfn0RyMmU9ZfK97nvYqISE9udlkLi-qarxoNvlbT4AX39S9U7RY7CPMHz96dqkr6hqj7wzRn9o45EF_0sNKvL9CrahDOma9Ng_-acHjOOn3YQksP68EX2GSy0cY2MjMFovumqVAtauwe7xzumci0EF3pdu3xirqITfmH6bx7RWnhUiNBgGTfOvyCGvawAvCuQHDvU9ISpuaW-GHHA-8C6lBZK0jLrxjb5bnTMaI9WxXixAkZ4FexVZEXlvcnFSqDdeKTZoxvz0JoK4c0lQ6uE2QOulFQf9dvl4_oplJGWdFdBAakVSQfRsZ-VRzbkub_chALSrnaUHaCJiUQd7G-0Rh4V4NG7Ff4iOjRoUuBcCoiNFyafMsxlyn3QKTWwLM4jBaqllYDvm71QG0nIDjqjRFQCm_AhmmLfxCKeTmL1ueO9R00uTBkOJdmCYbmIuPEYaGcGyJvfeJWyNXWbMQLELguuEAR8di6P9MP_lAXhA1mAjjuMflV2__hKHt7NeaM1yVCx_K22k1RCcQSQWvA6VyqfqgrzfM6d7_CPW0eK6kV9-GYYPt6RqKavHhIr4FRpRLyO1zd-0rBuBBNj4ruCrwF_fJXw-9l_32PmssySHdZpofRzduy_AOBaFOXyqfdfaGC0lWdtVpm57KQJiz_ylov2Pn8fvercA7pl67dJGy8vXhoiqNmT6E1gmm5g6uKyt2KagvfpRbKSgklt_7lWjSKCS-N_GZiXGwfpMjB6K4QQDZ8dqsSiaghY9hC468lZMKdvdnjvBM4BhJoSgFFcF-YVe9J0c-j1RsmHeVEC35vYaucLn_7k45nWvyZzXkr6GZElMeRU8jysmoiu0FLAv-ywa165fETYEQ76AA9vhXO8mVw_N4HyRYl_94WEzyDYsd438YkTp8RlD7YPeWuR2rcvA0JYn6C-n0wB4oUsqWACzfh6CJTS_Az2-ZAtEMBRH0vEKEiMzKEQWAoUsqoM7uHRXqb1VcbsBSyYEMCWqxI-qHAMSNqPVWhagTuIzAj-jzY7rZmWZFOcwvJOQPec2o7WHbwKOXVJPXk-4Xsa2DiZ5dsqkw_ALt4IzKVY_E_NtDXUlcer-2lfOPCXG6ugePbzZS6MYFHAGKJIT3Ya-CuzwcZTwkwpf_-h0Px7OUq-kKfeeEe6JNNJwQPb9XGWjHBNgMU7CXq8pbsQx6--Pw_MIxd5UOyaMMz9Z4S_g7J_EczWtT5UKRq-MrsC2ZD8kUv2tc4DmOgLlbhErHzeNLF8_Gh7UAxU0_F9PVr2dfOvWoaj75AXgNIwd0AUfsi3hg6qidD5LsjL2H0O3eKhrCXkIcpkv-XHPBSf9WNTeRPfcImyW9th-X_EICQbvw6J8QQa13Pc0RMaUMG_D7cnrl1CEgUoVIBZ2iy0vPMVrgFvZnCym44JmXhWny2e4KAC4n6usQpBN9DXMHGdZ0IDwn-_cFWYxWs4jnmZl8aOQUit36VvdTa5DBPiptUVRXUIUZz6gOGzPP9OxBVkczzehfZDKp-GVha3xwHtHsf5m7tUHm-yn8EFTbgYrYGMxK2R1CL2zDRO96b5bDu0DjW7OXhNV7MoP6ANKUc4ky4667yHtcc7y211WtimBin7lpCx9BN0gQxztLvNl7vz3kE1IC0xPXu4ics04dZlNCLONeKsVtBV3kJjfC6ByBfxlZq72YRdJLBIUPtVj2cnnAGTNLwjf0kpBaiItlJY_QjrRFfDJu0nDu-dLjp4c0hdAGrLSUa3fSLKP0KSKOTGT2tNgxOFzEg7yXTCdsE8bUekbVmBNtRRwmzubGvhu_ASrsScOTNGSwhHWtcUx8EjqeiBddNYlzGlPZ6StUGToLYfCasJSSgWotp37NNZx5M9hzWmSFW6cSzjVtgYxs_HYIKNLTd4oSSw0CzQHTUHJWIwaMRvxsncEi4ksP1Bn0UAa2sbaFj0OJprigN1caxzk1xeHy_mG-D4CcfYTIcqez8u5gWrbuaKcqa0UfeKf1xn3YSV22i_buH74dMysoW1rwCOl-FV55eVu23Y9mLZYYxUk1VAEvRp3ukFd-NTj6Q0QiFSfeBoO2yIDxZwUH5Y2KzlAE5zNihKIxoD2yCBpZSVVg-ow_ply7y63vFYVeCcdwXBA-oD1ZP7wntWFOEsWdkVvzh0LaDtui6GM1mxJwijpLM-TaJxfAhjUvHSry9tbgQtZyAUIhDytXTZdkOpRw1qnW4hcYAl1Zn-LKVtKaN6A6HHOeJ3giRJ_Qey7clAQL39EzWJ33_ht8lqgJOwR4LljuGX1lPDMR3Ich_X4CNXcA-AUwMyYII5tLkefIhh2Lii_0S26YoGrZK93nEIM4RNujdBkRAa_WIhDlG58G2iaSJj0CEPIaIvZBKoACWe
+11-20 12:34:50.899  2405  2497 E cr_ClientAuthCredsWidevine: Server returned HTTP error code 401
+11-20 12:34:50.899  2405  2497 E cr_ClientAuthCredsWidevine: attemptCredsProvisioning. Received null response.
+11-20 12:34:50.899  2405  2497 I cr_ClientAuthCredsProvisioning: ClientAuthCredsProvisioning. Next attempt(secs): 60
+11-20 12:34:52.063   284  3249 D goldfish-address-space: claimShared: Ask to claim region [0x3f87e7000 0x3f8fd0000]
+11-20 12:34:52.073   157   157 I hwservicemanager: getTransport: Cannot find entry android.hardware.graphics.mapper@4.0::IMapper/default in either framework or device manifest.
+11-20 12:34:52.074  5704  5704 I Gralloc4: mapper 4.x is not supported
+11-20 12:34:52.078  5704  5704 D HostConnection: createUnique: call
+11-20 12:34:52.079  5704  5704 D HostConnection: HostConnection::get() New Host Connection established 0xf3b400f0, tid 5704
+11-20 12:34:52.079  5704  5704 D goldfish-address-space: allocate: Ask for block of size 0x100
+11-20 12:34:52.079  5704  5704 D goldfish-address-space: allocate: ioctl allocate returned offset 0x3ffffe000 size 0x2000
+11-20 12:34:52.090  5704  5704 D HostConnection: HostComposition ext ANDROID_EMU_CHECKSUM_HELPER_v1 ANDROID_EMU_native_sync_v2 ANDROID_EMU_dma_v1 ANDROID_EMU_direct_mem ANDROID_EMU_host_composition_v1 ANDROID_EMU_host_composition_v2 ANDROID_EMU_vulkan ANDROID_EMU_deferred_vulkan_commands ANDROID_EMU_vulkan_null_optional_strings ANDROID_EMU_vulkan_create_resources_with_requirements ANDROID_EMU_YUV_Cache ANDROID_EMU_vulkan_ignored_handles ANDROID_EMU_has_shared_slots_host_memory_allocator ANDROID_EMU_vulkan_free_memory_sync ANDROID_EMU_vulkan_shader_float16_int8 ANDROID_EMU_vulkan_async_queue_submit ANDROID_EMU_sync_buffer_data ANDROID_EMU_vulkan_async_qsri ANDROID_EMU_read_color_buffer_dma ANDROID_EMU_hwc_color_transform ANDROID_EMU_hwc_display_power_mode GL_OES_EGL_image_external_essl3 GL_OES_vertex_array_object GL_KHR_texture_compression_astc_ldr ANDROID_EMU_host_side_tracing ANDROID_EMU_gles_max_version_3_0 
+11-20 12:34:52.316  5706  5706 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-20 12:34:52.317  5706  5706 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.profilebootclasspath"
+11-20 12:34:52.317  5706  5706 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.enable_apex_image"
+11-20 12:34:52.317  5706  5706 I AndroidRuntime: Using default boot image
+11-20 12:34:52.317  5706  5706 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.disable_lock_profiling"
+11-20 12:34:52.317  5706  5706 I AndroidRuntime: Leaving lock profiling enabled
+11-20 12:34:52.318  5706  5706 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.enable_generational_cc"
+11-20 12:34:52.312  5706  5706 W app_process: type=1400 audit(0.0:243): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=1198 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+11-20 12:34:52.312  5706  5706 I chatty  : uid=2000(shell) app_process identical 2 lines
+11-20 12:34:52.312  5706  5706 W app_process: type=1400 audit(0.0:246): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=1198 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+11-20 12:34:52.366  5706  5706 D app_process: Time zone APEX ICU file found: /apex/com.android.tzdata/etc/icu/icu_tzdata.dat
+11-20 12:34:52.367  5706  5706 D app_process: I18n APEX ICU file found: /apex/com.android.i18n/etc/icu/icudt66l.dat
+11-20 12:34:52.369  5706  5706 W app_process: Unexpected CPU variant for X86 using defaults: x86
+11-20 12:34:52.369  5706  5706 I app_process: The ClassLoaderContext is a special shared library.
+11-20 12:34:52.377  5706  5706 W app_process: JNI RegisterNativeMethods: attempt to register 0 native methods for android.media.AudioAttributes
+11-20 12:34:52.379  5706  5706 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-20 12:34:52.382  4297  4297 I TvStock/Config: 修改设置：market
+11-20 12:34:52.388  5706  5706 D AndroidRuntime: Shutting down VM
+11-20 12:34:52.394   473  2793 I system_server: oneway function results will be dropped but finished with status OK and parcel size 4
+11-20 12:34:52.413   284  3249 D goldfish-address-space: claimShared: Ask to claim region [0x3fbf46000 0x3fbf5f000]
+11-20 12:34:52.416   284  3249 D goldfish-address-space: claimShared: Ask to claim region [0x3fbf5f000 0x3fbf78000]
+11-20 12:34:52.452   284   284 D goldfish-address-space: claimShared: Ask to claim region [0x3fbf78000 0x3fbf91000]
+11-20 12:34:52.527   473  1621 I system_server: oneway function results will be dropped but finished with status OK and parcel size 4
+--------- beginning of system
+11-20 12:33:36.520   473  1117 E TaskPersister: File error accessing recents directory (directory doesn't exist?).
+11-20 12:34:54.389   473  1621 W NotificationService: Toast already killed. pkg=io.github.yixuexiaoao.tvstock token=android.os.BinderProxy@8f31811
+11-20 12:34:55.890   473   504 W WindowManager: Unable to start animation, surface is null or no children.
+11-20 12:34:55.503   473  1621 I system_server: oneway function results will be dropped but finished with status OK and parcel size 4
+11-20 12:34:56.882   284   284 D goldfish-address-space: claimShared: Ask to claim region [0x3f87e7000 0x3f8fd0000]
+11-20 12:34:56.888   157   157 I hwservicemanager: getTransport: Cannot find entry android.hardware.graphics.mapper@4.0::IMapper/default in either framework or device manifest.
+11-20 12:34:56.889  5722  5722 I Gralloc4: mapper 4.x is not supported
+11-20 12:34:56.894  5722  5722 D HostConnection: createUnique: call
+11-20 12:34:56.894  5722  5722 D HostConnection: HostConnection::get() New Host Connection established 0xecb80be0, tid 5722
+11-20 12:34:56.895  5722  5722 D goldfish-address-space: allocate: Ask for block of size 0x100
+11-20 12:34:56.895  5722  5722 D goldfish-address-space: allocate: ioctl allocate returned offset 0x3ffffe000 size 0x2000
+11-20 12:34:56.906  5722  5722 D HostConnection: HostComposition ext ANDROID_EMU_CHECKSUM_HELPER_v1 ANDROID_EMU_native_sync_v2 ANDROID_EMU_dma_v1 ANDROID_EMU_direct_mem ANDROID_EMU_host_composition_v1 ANDROID_EMU_host_composition_v2 ANDROID_EMU_vulkan ANDROID_EMU_deferred_vulkan_commands ANDROID_EMU_vulkan_null_optional_strings ANDROID_EMU_vulkan_create_resources_with_requirements ANDROID_EMU_YUV_Cache ANDROID_EMU_vulkan_ignored_handles ANDROID_EMU_has_shared_slots_host_memory_allocator ANDROID_EMU_vulkan_free_memory_sync ANDROID_EMU_vulkan_shader_float16_int8 ANDROID_EMU_vulkan_async_queue_submit ANDROID_EMU_sync_buffer_data ANDROID_EMU_vulkan_async_qsri ANDROID_EMU_read_color_buffer_dma ANDROID_EMU_hwc_color_transform ANDROID_EMU_hwc_display_power_mode GL_OES_EGL_image_external_essl3 GL_OES_vertex_array_object GL_KHR_texture_compression_astc_ldr ANDROID_EMU_host_side_tracing ANDROID_EMU_gles_max_version_3_0 
+11-20 12:34:57.127  5724  5724 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-20 12:34:57.128  5724  5724 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.profilebootclasspath"
+11-20 12:34:57.129  5724  5724 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.enable_apex_image"
+11-20 12:34:57.129  5724  5724 I AndroidRuntime: Using default boot image
+11-20 12:34:57.129  5724  5724 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.disable_lock_profiling"
+11-20 12:34:57.129  5724  5724 I AndroidRuntime: Leaving lock profiling enabled
+11-20 12:34:57.129  5724  5724 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.enable_generational_cc"
+11-20 12:34:57.124  5724  5724 W app_process: type=1400 audit(0.0:247): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=1198 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+11-20 12:34:57.124  5724  5724 I chatty  : uid=2000(shell) app_process identical 2 lines
+11-20 12:34:57.124  5724  5724 W app_process: type=1400 audit(0.0:250): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=1198 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+11-20 12:34:57.168  5724  5724 D app_process: Time zone APEX ICU file found: /apex/com.android.tzdata/etc/icu/icu_tzdata.dat
+11-20 12:34:57.168  5724  5724 D app_process: I18n APEX ICU file found: /apex/com.android.i18n/etc/icu/icudt66l.dat
+11-20 12:34:57.171  5724  5724 W app_process: Unexpected CPU variant for X86 using defaults: x86
+11-20 12:34:57.171  5724  5724 I app_process: The ClassLoaderContext is a special shared library.
+11-20 12:34:57.179  5724  5724 W app_process: JNI RegisterNativeMethods: attempt to register 0 native methods for android.media.AudioAttributes
+11-20 12:34:57.181  5724  5724 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-20 12:34:57.183  4297  4297 I TvStock/Config: 修改设置：market
+11-20 12:34:57.193  5724  5724 D AndroidRuntime: Shutting down VM
+11-20 12:34:57.224   284   284 D goldfish-address-space: claimShared: Ask to claim region [0x3fbf46000 0x3fbf60000]
+11-20 12:34:57.250  1036  1036 I GoogleInputMethodService: GoogleInputMethodService.onFinishInput():3466 
+11-20 12:34:57.250  1036  1036 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():2045 
+11-20 12:34:57.251  1036  1036 I DeviceUnlockedTag: DeviceUnlockedTag.notifyDeviceLockStatusChanged():38 Notify device unlocked.
+11-20 12:34:57.264   284   284 D goldfish-address-space: claimShared: Ask to claim region [0x3fbf60000 0x3fbf7a000]
+11-20 12:34:57.277   284  3249 D goldfish-address-space: claimShared: Ask to claim region [0x3fbf7a000 0x3fbf94000]
+11-20 12:34:58.549  2176  3750 I GMS_MM_Logger: Memory Metric Logging not allowed. Stopping.
+11-20 12:34:59.190   473  1621 W NotificationService: Toast already killed. pkg=io.github.yixuexiaoao.tvstock token=android.os.BinderProxy@70648b2
+11-20 12:35:00.690   473   504 W WindowManager: Unable to start animation, surface is null or no children.
+11-20 12:35:01.656  4297  5739 I TvStock/Config: 修改设置：market
+11-20 12:35:01.723  1003  3206 I NetworkScheduler.Stats: Task com.google.android.gms/com.google.android.gms.checkin.CheckinService started execution. cause:4 exec_start_elapsed_seconds: 351 [CONTEXT service_id=218 ]
+11-20 12:35:01.738  1003  3206 I NetworkScheduler.Stats: Task com.google.android.gms/com.google.android.gms.checkin.CheckinService finished executing. cause:4 result: 3 elapsed_millis: 59 uptime_millis: 59 exec_start_elapsed_seconds: 351 [CONTEXT service_id=218 ]
+11-20 12:35:01.743   473   484 W System  : A resource failed to call release. 
+11-20 12:35:01.747  1003  3206 I NetworkScheduler.Stats: Task com.google.android.gms/com.google.android.gms.auth.account.be.legacy.AuthCronService started execution. cause:4 exec_start_elapsed_seconds: 351 [CONTEXT service_id=218 ]
+11-20 12:35:01.769  2176  2212 E libc    : Access denied finding property "persist.adb.tls_server.enable"
+11-20 12:35:01.769  2176  2212 E libc    : Access denied finding property "service.adb.tls.port"
+11-20 12:35:01.764  2176  2176 W Binder:2176_2: type=1400 audit(0.0:251): avc: denied { read } for name="u:object_r:system_adbd_prop:s0" dev="tmpfs" ino=1290 scontext=u:r:gmscore_app:s0:c512,c768 tcontext=u:object_r:system_adbd_prop:s0 tclass=file permissive=0 app=com.google.android.gms
+11-20 12:35:01.764  2176  2176 W Binder:2176_2: type=1400 audit(0.0:252): avc: denied { read } for name="u:object_r:adbd_prop:s0" dev="tmpfs" ino=1148 scontext=u:r:gmscore_app:s0:c512,c768 tcontext=u:object_r:adbd_prop:s0 tclass=file permissive=0 app=com.google.android.gms
+11-20 12:35:01.867  1003  1721 W GLSUser : [AppCertManager] Failed to get security token.
+11-20 12:35:01.867  1003  1721 W GLSUser : java.io.IOException: Invalid scope
+11-20 12:35:01.867  1003  1721 W GLSUser : 	at xom.d(:com.google.android.gms@223616104@22.36.16 (180706-476895098):22)
+11-20 12:35:01.867  1003  1721 W GLSUser : 	at xom.c(:com.google.android.gms@223616104@22.36.16 (180706-476895098):8)
+11-20 12:35:01.867  1003  1721 W GLSUser : 	at jpp.b(:com.google.android.gms@223616104@22.36.16 (180706-476895098):14)
+11-20 12:35:01.867  1003  1721 W GLSUser : 	at jpn.b(:com.google.android.gms@223616104@22.36.16 (180706-476895098):2)
+11-20 12:35:01.867  1003  1721 W GLSUser : 	at jpi.a(:com.google.android.gms@223616104@22.36.16 (180706-476895098):0)
+11-20 12:35:01.867  1003  1721 W GLSUser : 	at jpl.a(:com.google.android.gms@223616104@22.36.16 (180706-476895098):5)
+11-20 12:35:01.867  1003  1721 W GLSUser : 	at hob.call(:com.google.android.gms@223616104@22.36.16 (180706-476895098):13)
+11-20 12:35:01.867  1003  1721 W GLSUser : 	at java.util.concurrent.FutureTask.run(FutureTask.java:266)
+11-20 12:35:01.867  1003  1721 W GLSUser : 	at oiz.c(:com.google.android.gms@223616104@22.36.16 (180706-476895098):6)
+11-20 12:35:01.867  1003  1721 W GLSUser : 	at oiz.run(:com.google.android.gms@223616104@22.36.16 (180706-476895098):7)
+11-20 12:35:01.867  1003  1721 W GLSUser : 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1167)
+11-20 12:35:01.867  1003  1721 W GLSUser : 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:641)
+11-20 12:35:01.867  1003  1721 W GLSUser : 	at ooc.run(:com.google.android.gms@223616104@22.36.16 (180706-476895098):0)
+11-20 12:35:01.867  1003  1721 W GLSUser : 	at java.lang.Thread.run(Thread.java:923)
+11-20 12:35:01.896  1003  1721 E GmsTaskScheduler: sendWakeUpEvent called on SchedulerClientBroadcastStrategy
+11-20 12:35:01.898  1003  1721 W GLSUser : [AppCertManager] IOException while requesting key: 
+11-20 12:35:01.898  1003  1721 W GLSUser : java.io.IOException: Invalid device key response.
+11-20 12:35:01.898  1003  1721 W GLSUser : 	at jpp.b(:com.google.android.gms@223616104@22.36.16 (180706-476895098):30)
+11-20 12:35:01.898  1003  1721 W GLSUser : 	at jpn.b(:com.google.android.gms@223616104@22.36.16 (180706-476895098):2)
+11-20 12:35:01.898  1003  1721 W GLSUser : 	at jpi.a(:com.google.android.gms@223616104@22.36.16 (180706-476895098):0)
+11-20 12:35:01.898  1003  1721 W GLSUser : 	at jpl.a(:com.google.android.gms@223616104@22.36.16 (180706-476895098):5)
+11-20 12:35:01.898  1003  1721 W GLSUser : 	at hob.call(:com.google.android.gms@223616104@22.36.16 (180706-476895098):13)
+11-20 12:35:01.898  1003  1721 W GLSUser : 	at java.util.concurrent.FutureTask.run(FutureTask.java:266)
+11-20 12:35:01.898  1003  1721 W GLSUser : 	at oiz.c(:com.google.android.gms@223616104@22.36.16 (180706-476895098):6)
+11-20 12:35:01.898  1003  1721 W GLSUser : 	at oiz.run(:com.google.android.gms@223616104@22.36.16 (180706-476895098):7)
+11-20 12:35:01.898  1003  1721 W GLSUser : 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1167)
+11-20 12:35:01.898  1003  1721 W GLSUser : 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:641)
+11-20 12:35:01.898  1003  1721 W GLSUser : 	at ooc.run(:com.google.android.gms@223616104@22.36.16 (180706-476895098):0)
+11-20 12:35:01.898  1003  1721 W GLSUser : 	at java.lang.Thread.run(Thread.java:923)
+11-20 12:35:01.900  1003  5742 I NetworkScheduler.Stats: Task com.google.android.gms/com.google.android.gms.auth.account.be.legacy.AuthCronService finished executing. cause:4 result: 3 elapsed_millis: 197 uptime_millis: 197 exec_start_elapsed_seconds: 351 [CONTEXT service_id=218 ]
+11-20 12:35:05.388   473   473 W WindowManager: removeWindowToken: Attempted to remove non-existing token: android.os.Binder@422f6c6
+11-20 12:35:08.778  5750  5750 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-20 12:35:08.779  5750  5750 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.profilebootclasspath"
+11-20 12:35:08.779  5750  5750 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.enable_apex_image"
+11-20 12:35:08.779  5750  5750 I AndroidRuntime: Using default boot image
+11-20 12:35:08.779  5750  5750 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.disable_lock_profiling"
+11-20 12:35:08.779  5750  5750 I AndroidRuntime: Leaving lock profiling enabled
+11-20 12:35:08.779  5750  5750 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.enable_generational_cc"
+11-20 12:35:08.776  5750  5750 W app_process: type=1400 audit(0.0:253): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=1198 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+11-20 12:35:08.776  5750  5750 I chatty  : uid=2000(shell) app_process identical 2 lines
+11-20 12:35:08.776  5750  5750 W app_process: type=1400 audit(0.0:256): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=1198 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+11-20 12:35:08.821  5750  5750 D app_process: Time zone APEX ICU file found: /apex/com.android.tzdata/etc/icu/icu_tzdata.dat
+11-20 12:35:08.822  5750  5750 D app_process: I18n APEX ICU file found: /apex/com.android.i18n/etc/icu/icudt66l.dat
+11-20 12:35:08.824  5750  5750 W app_process: Unexpected CPU variant for X86 using defaults: x86
+11-20 12:35:08.824  5750  5750 I app_process: The ClassLoaderContext is a special shared library.
+11-20 12:35:08.831  5750  5750 W app_process: JNI RegisterNativeMethods: attempt to register 0 native methods for android.media.AudioAttributes
+11-20 12:35:08.834  5750  5750 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-20 12:35:08.836   473  3948 I ActivityTaskManager: START u0 {cmp=io.github.yixuexiaoao.tvstock/.ui.SettingsActivity} from uid 10077
+11-20 12:35:08.838   473  1621 W ActivityTaskManager: Tried to set launchTime (0) < mLastActivityLaunchTime (236680)
+11-20 12:35:08.839   473  1621 W InputReader: Device virtio_input_multi_touch_8 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:08.839   473  1621 W InputReader: Device virtio_input_multi_touch_9 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:08.839   473  1621 W InputReader: Device virtio_input_multi_touch_10 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:08.839   473  1621 W InputReader: Device virtio_input_multi_touch_7 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:08.839   473  1621 W InputReader: Device virtio_input_multi_touch_4 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:08.839   473  1621 W InputReader: Device virtio_input_multi_touch_11 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:08.839   473  1621 W InputReader: Device virtio_input_multi_touch_5 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:08.839   473  1621 W InputReader: Device virtio_input_multi_touch_6 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:08.839   473  1621 W InputReader: Device virtio_input_multi_touch_3 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:08.839   473  1621 W InputReader: Device virtio_input_multi_touch_2 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:08.839   473  1621 W InputReader: Device virtio_input_multi_touch_8 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:08.839   473  1621 W InputReader: Device virtio_input_multi_touch_9 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:08.839   473  1621 W InputReader: Device virtio_input_multi_touch_10 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:08.839   473  1621 W InputReader: Device virtio_input_multi_touch_7 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:08.839   473  1621 W InputReader: Device virtio_input_multi_touch_4 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:08.839   473  1621 W InputReader: Device virtio_input_multi_touch_11 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:08.839   473  1621 W InputReader: Device virtio_input_multi_touch_5 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:08.839   473  1621 W InputReader: Device virtio_input_multi_touch_6 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:08.839   473  1621 W InputReader: Device virtio_input_multi_touch_3 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:08.839   473  1621 W InputReader: Device virtio_input_multi_touch_2 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:08.845  5750  5750 D AndroidRuntime: Shutting down VM
+11-20 12:35:08.855   284  3249 D goldfish-address-space: claimShared: Ask to claim region [0x3f87e7000 0x3f8fd0000]
+11-20 12:35:08.862   284  3249 D goldfish-address-space: claimShared: Ask to claim region [0x3f8fd0000 0x3f97b9000]
+11-20 12:35:08.865   284  3249 D goldfish-address-space: claimShared: Ask to claim region [0x3f97b9000 0x3f9fa2000]
+11-20 12:35:08.913   473   509 I ActivityTaskManager: Displayed io.github.yixuexiaoao.tvstock/.ui.SettingsActivity: +75ms
+11-20 12:35:08.942  1036  1036 I GoogleInputMethodService: GoogleInputMethodService.onFinishInput():3466 
+11-20 12:35:08.943  1036  1036 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():2045 
+11-20 12:35:08.946  1036  1036 I DeviceUnlockedTag: DeviceUnlockedTag.notifyDeviceLockStatusChanged():38 Notify device unlocked.
+11-20 12:35:10.190   473   473 W WindowManager: removeWindowToken: Attempted to remove non-existing token: android.os.Binder@2bf5e50
+11-20 12:35:11.879   473  1117 E TaskPersister: File error accessing recents directory (directory doesn't exist?).
+11-20 12:35:12.325  5765  5765 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-20 12:35:12.327  5765  5765 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.profilebootclasspath"
+11-20 12:35:12.327  5765  5765 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.enable_apex_image"
+11-20 12:35:12.327  5765  5765 I AndroidRuntime: Using default boot image
+11-20 12:35:12.327  5765  5765 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.disable_lock_profiling"
+11-20 12:35:12.327  5765  5765 I AndroidRuntime: Leaving lock profiling enabled
+11-20 12:35:12.327  5765  5765 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.enable_generational_cc"
+11-20 12:35:12.320  5765  5765 W app_process: type=1400 audit(0.0:257): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=1198 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+11-20 12:35:12.324  5765  5765 I chatty  : uid=2000(shell) app_process identical 2 lines
+11-20 12:35:12.324  5765  5765 W app_process: type=1400 audit(0.0:260): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=1198 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+11-20 12:35:12.366  5765  5765 D app_process: Time zone APEX ICU file found: /apex/com.android.tzdata/etc/icu/icu_tzdata.dat
+11-20 12:35:12.366  5765  5765 D app_process: I18n APEX ICU file found: /apex/com.android.i18n/etc/icu/icudt66l.dat
+11-20 12:35:12.369  5765  5765 W app_process: Unexpected CPU variant for X86 using defaults: x86
+11-20 12:35:12.369  5765  5765 I app_process: The ClassLoaderContext is a special shared library.
+11-20 12:35:12.376  5765  5765 W app_process: JNI RegisterNativeMethods: attempt to register 0 native methods for android.media.AudioAttributes
+11-20 12:35:12.379  5765  5765 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-20 12:35:12.383   284  3249 D goldfish-address-space: claimShared: Ask to claim region [0x3f7ffe000 0x3f87e7000]
+11-20 12:35:12.395   473  1621 W InputReader: Device virtio_input_multi_touch_8 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:12.395   473  1621 W InputReader: Device virtio_input_multi_touch_9 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:12.395   473  1621 W InputReader: Device virtio_input_multi_touch_10 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:12.395   473  1621 W InputReader: Device virtio_input_multi_touch_7 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:12.395   473  1621 W InputReader: Device virtio_input_multi_touch_4 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:12.395   473  1621 W InputReader: Device virtio_input_multi_touch_11 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:12.395   473  1621 W InputReader: Device virtio_input_multi_touch_5 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:12.395   473  1621 W InputReader: Device virtio_input_multi_touch_6 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:12.395   473  1621 W InputReader: Device virtio_input_multi_touch_3 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:12.395   473  1621 W InputReader: Device virtio_input_multi_touch_2 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:12.396   473  1621 W InputReader: Device virtio_input_multi_touch_8 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:12.396   473  1621 W InputReader: Device virtio_input_multi_touch_9 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:12.396   473  1621 W InputReader: Device virtio_input_multi_touch_10 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:12.396   473  1621 W InputReader: Device virtio_input_multi_touch_7 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:12.396   473  1621 W InputReader: Device virtio_input_multi_touch_4 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:12.396   473  1621 W InputReader: Device virtio_input_multi_touch_11 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:12.396   473  1621 W InputReader: Device virtio_input_multi_touch_5 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:12.396   473  1621 W InputReader: Device virtio_input_multi_touch_6 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:12.396   473  1621 W InputReader: Device virtio_input_multi_touch_3 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:12.396   473  1621 W InputReader: Device virtio_input_multi_touch_2 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:12.396  5765  5765 D AndroidRuntime: Shutting down VM
+11-20 12:35:12.414   685   700 W System  : A resource failed to call release. 
+11-20 12:35:12.438   284  3249 D goldfish-address-space: claimShared: Ask to claim region [0x3f9fa2000 0x3fa78b000]
+11-20 12:35:12.448   284  3249 D goldfish-address-space: claimShared: Ask to claim region [0x3fa78b000 0x3faf74000]
+11-20 12:35:12.450   284  3249 D goldfish-address-space: claimShared: Ask to claim region [0x3faf74000 0x3fb75d000]
+11-20 12:35:12.491  1036  1036 I GoogleInputMethodService: GoogleInputMethodService.onFinishInput():3466 
+11-20 12:35:12.491  1036  1036 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():2045 
+11-20 12:35:12.491  1036  1036 I DeviceUnlockedTag: DeviceUnlockedTag.notifyDeviceLockStatusChanged():38 Notify device unlocked.
+11-20 12:35:12.991  1174  1174 D RetryBindingHandler: Handle WHAT_RETRY_GET_LOCAL_CLOUDCAST_SERVICE_INFO message
+11-20 12:35:12.992  2405  2405 E cr_LocalGrpcAuthService: Calling package not allowed.
+11-20 12:35:12.992  1174  1174 E LocalGrpcAuthClientImpl: invalid message
+11-20 12:35:12.992  1174  1174 D RetryBindingHandler: retry get auth info
+11-20 12:35:12.992  1174  1174 D RetryBindingHandler: send message in 256000 ms
+11-20 12:35:12.992  1174  1174 E cr_AssistantManagerInternal$AssistantLocalGrpcAuthCallback: the port or token cannot be retrieved from local grpc client
+11-20 12:35:14.379  1174  4195 D BindingManager: with
+11-20 12:35:14.379  2405  2405 W cr_GrpcIpcUidPolicy: Signaure hash T3FWTW4FrfZGfnxVLvvYYYrf02Ws4NZTsvI808lwDxA= not in whitelisted signatures
+11-20 12:35:14.379  2405  2405 E cr_GrpcIpcUidPolicy: Unauthorized access attempt from com.google.android.katniss
+11-20 12:35:14.379  2405  2405 E cr_GrpcIpcSocketService: Calling package not allowed.
+11-20 12:35:14.380  1174  1174 E GrpcIpcSocketClientImpl: invalid message
+11-20 12:35:14.380  1174  4195 E native  : E0000 00:00:1795178114.380058    4195 grpc_ipc_socket_client.cc:77] Error for usonia-ipc-socket
+11-20 12:35:14.380  1174  4195 E native  : E0000 00:00:1795178114.380105    4195 android_grpc_builder.cc:149] Could not get a socket for binder:com.google.android.apps.mediashell:usonia-ipc-socket
+11-20 12:35:14.380  1174  4195 E native  : E0000 00:00:1795178114.380117    4195 grpc_manager_impl.cc:634] GRPC[uri=]: Grpc cannot connect to host {UNDEFINED}
+11-20 12:35:14.380  1174  4195 E native  : E0000 00:00:1795178114.380127    4195 grpc_manager_impl.cc:782] GRPC[uri=]: status=[error_code=RESOURCE_EXHAUSTED, error_message=Cannot create a channel. Call to binder:com.google.android.apps.mediashell:usonia-ipc-socket ignored.]
+11-20 12:35:14.380  1174  4195 W native  : W0000 00:00:1795178114.380135    4195 grpc_auth_manager_with_grpc_ipc.cc:65] IPC for Auth.AuthReadyStreaming closed: status=[error_code=RESOURCE_EXHAUSTED, error_message=Cannot create a channel. Call to binder:com.google.android.apps.mediashell:usonia-ipc-socket ignored.]
+11-20 12:35:14.380  1174  4195 E native  : E0000 00:00:1795178114.380145    4195 grpc_manager_impl.cc:782] GRPC[uri=]: status=[error_code=RESOURCE_EXHAUSTED, error_message=Cannot create a channel. Call to binder:com.google.android.apps.mediashell:usonia-ipc-socket ignored.]
+11-20 12:35:14.380  1174  4195 W native  : W0000 00:00:1795178114.380151    4195 distributed_service_discovery_with_grpc_ipc.cc:150] IPC for DistributedServiceDiscovery.AddService closed: status=[error_code=RESOURCE_EXHAUSTED, error_message=Cannot create a channel. Call to binder:com.google.android.apps.mediashell:usonia-ipc-socket ignored.]
+11-20 12:35:14.380  1174  4195 E native  : E0000 00:00:1795178114.380158    4195 grpc_manager_impl.cc:782] GRPC[uri=]: status=[error_code=RESOURCE_EXHAUSTED, error_message=Cannot create a channel. Call to binder:com.google.android.apps.mediashell:usonia-ipc-socket ignored.]
+11-20 12:35:14.380  1174  4195 W native  : W0000 00:00:1795178114.380163    4195 distributed_service_discovery_with_grpc_ipc.cc:64] IPC for DistributedServiceDiscovery.UpdateObservers closed: status=[error_code=RESOURCE_EXHAUSTED, error_message=Cannot create a channel. Call to binder:com.google.android.apps.mediashell:usonia-ipc-socket ignored.]
+11-20 12:35:14.380  1174  4195 E native  : E0000 00:00:1795178114.380169    4195 grpc_manager_impl.cc:782] GRPC[uri=]: status=[error_code=RESOURCE_EXHAUSTED, error_message=Cannot create a channel. Call to binder:com.google.android.apps.mediashell:usonia-ipc-socket ignored.]
+11-20 12:35:14.380  1174  4195 W native  : W0000 00:00:1795178114.380174    4195 distributed_service_discovery_with_grpc_ipc.cc:251] IPC for DistributedServiceDiscovery.GetIamMode closed: status=[error_code=RESOURCE_EXHAUSTED, error_message=Cannot create a channel. Call to binder:com.google.android.apps.mediashell:usonia-ipc-socket ignored.]
+11-20 12:35:14.380  1174  4195 E native  : E0000 00:00:1795178114.380181    4195 grpc_manager_impl.cc:782] GRPC[uri=]: status=[error_code=RESOURCE_EXHAUSTED, error_message=Cannot create a channel. Call to binder:com.google.android.apps.mediashell:usonia-ipc-socket ignored.]
+11-20 12:35:14.380  1174  4195 W native  : W0000 00:00:1795178114.380187    4195 metrics_recorder_with_grpc_ipc.cc:164] IPC for MetricsRecorder.RecordMetrics closed: status=[error_code=RESOURCE_EXHAUSTED, error_message=Cannot create a channel. Call to binder:com.google.android.apps.mediashell:usonia-ipc-socket ignored.]
+11-20 12:35:14.380  1174  4195 E native  : E0000 00:00:1795178114.380194    4195 grpc_manager_impl.cc:782] GRPC[uri=]: status=[error_code=RESOURCE_EXHAUSTED, error_message=Cannot create a channel. Call to binder:com.google.android.apps.mediashell:usonia-ipc-socket ignored.]
+11-20 12:35:14.380  1174  4195 W native  : W0000 00:00:1795178114.380223    4195 synchronous_sound_player_with_grpc_ipc.cc:173] IPC for SynchronousSoundPlayer.UpdateSound closed: status=[error_code=RESOURCE_EXHAUSTED, error_message=Cannot create a channel. Call to binder:com.google.android.apps.mediashell:usonia-ipc-socket ignored.]
+11-20 12:35:14.380  1174  4195 E native  : E0000 00:00:1795178114.380231    4195 grpc_manager_impl.cc:782] GRPC[uri=]: status=[error_code=RESOURCE_EXHAUSTED, error_message=Cannot create a channel. Call to binder:com.google.android.apps.mediashell:usonia-ipc-socket ignored.]
+11-20 12:35:14.380  1174  4195 E native  : E0000 00:00:1795178114.380237    4195 ipc_common.h:486] Error in fetching local device info: [error_code=RESOURCE_EXHAUSTED, error_message=Cannot create a channel. Call to binder:com.google.android.apps.mediashell:usonia-ipc-socket ignored.]
+11-20 12:35:14.380  1174  4195 E native  : E0000 00:00:1795178114.380245    4195 grpc_manager_impl.cc:782] GRPC[uri=]: status=[error_code=RESOURCE_EXHAUSTED, error_message=Cannot create a channel. Call to binder:com.google.android.apps.mediashell:usonia-ipc-socket ignored.]
+11-20 12:35:14.380  1174  4195 W native  : W0000 00:00:1795178114.380250    4195 directory_service_with_grpc_ipc.cc:123] IPC for DirectoryService.ObserveCommonTime closed: status=[error_code=RESOURCE_EXHAUSTED, error_message=Cannot create a channel. Call to binder:com.google.android.apps.mediashell:usonia-ipc-socket ignored.]
+11-20 12:35:14.380  1174  4195 E native  : E0000 00:00:1795178114.380257    4195 grpc_manager_impl.cc:782] GRPC[uri=]: status=[error_code=RESOURCE_EXHAUSTED, error_message=Cannot create a channel. Call to binder:com.google.android.apps.mediashell:usonia-ipc-socket ignored.]
+11-20 12:35:14.380  1174  4195 E native  : E0000 00:00:1795178114.380262    4195 directory_service_with_grpc_ipc.cc:277] IPC for DirectoryService.UpdateStateObservers closed: status=[error_code=RESOURCE_EXHAUSTED, error_message=Cannot create a channel. Call to binder:com.google.android.apps.mediashell:usonia-ipc-socket ignored.]
+11-20 12:35:14.380  1174  4195 E native  : E0000 00:00:1795178114.380270    4195 grpc_manager_impl.cc:782] GRPC[uri=]: status=[error_code=RESOURCE_EXHAUSTED, error_message=Cannot create a channel. Call to binder:com.google.android.apps.mediashell:usonia-ipc-socket ignored.]
+11-20 12:35:14.380  1174  4195 E native  : E0000 00:00:1795178114.380275    4195 directory_service_with_grpc_ipc.cc:378] IPC for DirectoryService.UpdateMessageObservers closed: status=[error_code=RESOURCE_EXHAUSTED, error_message=Cannot create a channel. Call to binder:com.google.android.apps.mediashell:usonia-ipc-socket ignored.]
+11-20 12:35:14.380  1174  4195 E native  : E0000 00:00:1795178114.380282    4195 grpc_manager_impl.cc:782] GRPC[uri=]: status=[error_code=RESOURCE_EXHAUSTED, error_message=Cannot create a channel. Call to binder:com.google.android.apps.mediashell:usonia-ipc-socket ignored.]
+11-20 12:35:14.380  1174  4195 W native  : W0000 00:00:1795178114.380288    4195 state_manager_with_grpc_ipc.cc:74] IPC for StateManager.ReceiveStateUpdates closed: status=[error_code=RESOURCE_EXHAUSTED, error_message=Cannot create a channel. Call to binder:com.google.android.apps.mediashell:usonia-ipc-socket ignored.]
+11-20 12:35:14.894  5778  5778 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-20 12:35:14.896  5778  5778 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.profilebootclasspath"
+11-20 12:35:14.896  5778  5778 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.enable_apex_image"
+11-20 12:35:14.896  5778  5778 I AndroidRuntime: Using default boot image
+11-20 12:35:14.896  5778  5778 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.disable_lock_profiling"
+11-20 12:35:14.896  5778  5778 I AndroidRuntime: Leaving lock profiling enabled
+11-20 12:35:14.896  5778  5778 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.enable_generational_cc"
+11-20 12:35:14.892  5778  5778 W app_process: type=1400 audit(0.0:261): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=1198 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+11-20 12:35:14.892  5778  5778 I chatty  : uid=2000(shell) app_process identical 2 lines
+11-20 12:35:14.892  5778  5778 W app_process: type=1400 audit(0.0:264): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=1198 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+11-20 12:35:14.935  5778  5778 D app_process: Time zone APEX ICU file found: /apex/com.android.tzdata/etc/icu/icu_tzdata.dat
+11-20 12:35:14.935  5778  5778 D app_process: I18n APEX ICU file found: /apex/com.android.i18n/etc/icu/icudt66l.dat
+11-20 12:35:14.938  5778  5778 W app_process: Unexpected CPU variant for X86 using defaults: x86
+11-20 12:35:14.938  5778  5778 I app_process: The ClassLoaderContext is a special shared library.
+11-20 12:35:14.945  5778  5778 W app_process: JNI RegisterNativeMethods: attempt to register 0 native methods for android.media.AudioAttributes
+11-20 12:35:14.948  5778  5778 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-20 12:35:14.951  5778  5778 D AndroidRuntime: Shutting down VM
+11-20 12:35:14.959   473   502 I ActivityTaskManager: START u0 {act=android.intent.action.MAIN cat=[android.intent.category.HOME] flg=0x10000100 cmp=com.google.android.tvlauncher/.MainActivity (has extras)} from uid 0
+11-20 12:35:14.963   473   502 W InputReader: Device virtio_input_multi_touch_8 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:14.963   473   502 W InputReader: Device virtio_input_multi_touch_9 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:14.963   473   502 W InputReader: Device virtio_input_multi_touch_10 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:14.963   473   502 W InputReader: Device virtio_input_multi_touch_7 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:14.963   473   502 W InputReader: Device virtio_input_multi_touch_4 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:14.963   473   502 W InputReader: Device virtio_input_multi_touch_11 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:14.963   473   502 W InputReader: Device virtio_input_multi_touch_5 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:14.963   473   502 W InputReader: Device virtio_input_multi_touch_6 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:14.963   473   502 W InputReader: Device virtio_input_multi_touch_3 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:14.963   473   502 W InputReader: Device virtio_input_multi_touch_2 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:14.963   473   502 W InputReader: Device virtio_input_multi_touch_8 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:14.963   473   502 W InputReader: Device virtio_input_multi_touch_9 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:14.963   473   502 W InputReader: Device virtio_input_multi_touch_10 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:14.963   473   502 W InputReader: Device virtio_input_multi_touch_7 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:14.963   473   502 W InputReader: Device virtio_input_multi_touch_4 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:14.963   473   502 W InputReader: Device virtio_input_multi_touch_11 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:14.963   473   502 W InputReader: Device virtio_input_multi_touch_5 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:14.963   473   502 W InputReader: Device virtio_input_multi_touch_6 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:14.963   473   502 W InputReader: Device virtio_input_multi_touch_3 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:14.963   473   502 W InputReader: Device virtio_input_multi_touch_2 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:14.985  1371  5791 E ActivityThread: Failed to find provider info for tvlauncher.mic
+11-20 12:35:15.004   284  3249 D goldfish-address-space: claimShared: Ask to claim region [0x3fb75d000 0x3fbf46000]
+11-20 12:35:15.039   284  3249 D goldfish-address-space: claimShared: Ask to claim region [0x3f87e7000 0x3f8fd0000]
+11-20 12:35:15.048   284   284 D goldfish-address-space: claimShared: Ask to claim region [0x3f8fd0000 0x3f97b9000]
+11-20 12:35:15.052  1371  1371 W Glide   : Load failed for [null] with dimensions [0x0]
+11-20 12:35:15.052  1371  1371 W Glide   : class byq: Received null model
+11-20 12:35:15.061  1371  1371 W Glide   : Load failed for [null] with dimensions [0x0]
+11-20 12:35:15.061  1371  1371 W Glide   : class byq: Received null model
+11-20 12:35:15.063  1371  1371 E Clearcut-EventLogger: Unexpected log parameter home_selected_row_position
+11-20 12:35:15.063  1371  1371 W HomeController: onResume: List view global layout completed.
+11-20 12:35:15.091  1371  1371 E Clearcut-EventLogger: Unexpected log parameter shown_channel_count
+11-20 12:35:15.117   473   509 D ArtManagerInternalImpl: /data/misc/iorapd/com.google.android.tvlauncher/1010908465/com.google.android.tvlauncher.MainActivity/compiled_traces/compiled_trace.pb doesn't exist
+11-20 12:35:15.237  1036  1036 I GoogleInputMethodService: GoogleInputMethodService.onFinishInput():3466 
+11-20 12:35:15.237  1036  1036 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():2045 
+11-20 12:35:15.237  1036  1036 I DeviceUnlockedTag: DeviceUnlockedTag.notifyDeviceLockStatusChanged():38 Notify device unlocked.
+11-20 12:35:15.269  4297  4297 I TvStock/Web: Web 服务已停止
+11-20 12:35:15.513  1371  1371 E Clearcut-EventLogger: Unexpected log parameter tray_notification_count
+11-20 12:35:15.513  1371  1371 E Clearcut-EventLogger: Unexpected log parameter notification_indicator_total
+11-20 12:35:15.576   473  1117 E TaskPersister: File error accessing recents directory (directory doesn't exist?).
+11-20 12:35:16.048  1371  1386 I roid.tvlaunche: Background concurrent copying GC freed 20586(1123KB) AllocSpace objects, 15(1260KB) LOS objects, 49% free, 5125KB/10MB, paused 22us total 154.993ms
+11-20 12:35:18.363  1371  1371 E Clearcut-EventLogger: Unexpected log parameter tray_notification_count
+11-20 12:35:19.467  1482  1482 E adbd    : failed to connect to socket 'tcp:58080': Connection refused
+11-20 12:35:19.566   473  4044 I ActivityTaskManager: START u0 {flg=0x10000000 cmp=io.github.yixuexiaoao.tvstock/.ui.MainActivity} from uid 2000
+11-20 12:35:19.621   473  3743 W InputReader: Device virtio_input_multi_touch_8 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:19.621   473  3743 W InputReader: Device virtio_input_multi_touch_9 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:19.621   473  3743 W InputReader: Device virtio_input_multi_touch_10 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:19.621   473  3743 W InputReader: Device virtio_input_multi_touch_7 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:19.621   473  3743 W InputReader: Device virtio_input_multi_touch_4 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:19.621   473  3743 W InputReader: Device virtio_input_multi_touch_11 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:19.621   473  3743 W InputReader: Device virtio_input_multi_touch_5 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:19.621   473  3743 W InputReader: Device virtio_input_multi_touch_6 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:19.621   473  3743 W InputReader: Device virtio_input_multi_touch_3 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:19.621   473  3743 W InputReader: Device virtio_input_multi_touch_2 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:19.621   473  3743 W InputReader: Device virtio_input_multi_touch_8 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:19.621   473  3743 W InputReader: Device virtio_input_multi_touch_9 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:19.621   473  3743 W InputReader: Device virtio_input_multi_touch_10 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:19.621   473  3743 W InputReader: Device virtio_input_multi_touch_7 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:19.621   473  3743 W InputReader: Device virtio_input_multi_touch_4 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:19.621   473  3743 W InputReader: Device virtio_input_multi_touch_11 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:19.621   473  3743 W InputReader: Device virtio_input_multi_touch_5 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:19.621   473  3743 W InputReader: Device virtio_input_multi_touch_6 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:19.621   473  3743 W InputReader: Device virtio_input_multi_touch_3 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:19.621   473  3743 W InputReader: Device virtio_input_multi_touch_2 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:19.703   284   284 D goldfish-address-space: claimShared: Ask to claim region [0x3f97b9000 0x3f9fa2000]
+11-20 12:35:19.743  4297  4297 I TvStock/Web: Web 服务已启动，端口 58080
+11-20 12:35:19.750   284   284 D goldfish-address-space: claimShared: Ask to claim region [0x3f9fa2000 0x3fa78b000]
+11-20 12:35:19.820   284  3249 D goldfish-address-space: claimShared: Ask to claim region [0x3fa78b000 0x3faf74000]
+11-20 12:35:19.913   284  3249 D goldfish-address-space: claimShared: Ask to claim region [0x3faf74000 0x3fb75d000]
+11-20 12:35:19.920   473   509 D ArtManagerInternalImpl: /data/misc/iorapd/io.github.yixuexiaoao.tvstock/1033/io.github.yixuexiaoao.tvstock.ui.MainActivity/compiled_traces/compiled_trace.pb doesn't exist
+11-20 12:35:19.933  4297  4297 I TvStock/Web: 后台地址：http://10.0.2.16:58080
+11-20 12:35:19.979  5799  5801 I cmd     : oneway function results will be dropped but finished with status OK and parcel size 4
+11-20 12:35:20.010  1036  1036 I GoogleInputMethodService: GoogleInputMethodService.onFinishInput():3466 
+11-20 12:35:20.010  1036  1036 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():2045 
+11-20 12:35:20.010  1036  1036 I DeviceUnlockedTag: DeviceUnlockedTag.notifyDeviceLockStatusChanged():38 Notify device unlocked.
+11-20 12:35:22.652   473  1117 E TaskPersister: File error accessing recents directory (directory doesn't exist?).
+11-20 12:35:23.891   454   454 E wifi_forwarder: qemu_pipe_open_ns:62: Could not connect to the 'pipe:qemud:wififorward' service: Invalid argument
+11-20 12:35:23.891   454   454 E wifi_forwarder: RemoteConnection failed to initialize: RemoteConnection failed to open pipe
+11-20 12:35:23.938   445   445 E netmgr  : qemu_pipe_open_ns:62: Could not connect to the 'pipe:qemud:network' service: Invalid argument
+11-20 12:35:23.938   445   445 E netmgr  : Failed to open QEMU pipe 'qemud:network': Invalid argument
+11-20 12:35:24.089  5805  5805 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-20 12:35:24.090  5805  5805 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.profilebootclasspath"
+11-20 12:35:24.090  5805  5805 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.enable_apex_image"
+11-20 12:35:24.090  5805  5805 I AndroidRuntime: Using default boot image
+11-20 12:35:24.090  5805  5805 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.disable_lock_profiling"
+11-20 12:35:24.090  5805  5805 I AndroidRuntime: Leaving lock profiling enabled
+11-20 12:35:24.090  5805  5805 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.enable_generational_cc"
+11-20 12:35:24.084  5805  5805 W app_process: type=1400 audit(0.0:265): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=1198 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+11-20 12:35:24.084  5805  5805 I chatty  : uid=2000(shell) app_process identical 2 lines
+11-20 12:35:24.084  5805  5805 W app_process: type=1400 audit(0.0:268): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=1198 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+11-20 12:35:24.136  5805  5805 D app_process: Time zone APEX ICU file found: /apex/com.android.tzdata/etc/icu/icu_tzdata.dat
+11-20 12:35:24.136  5805  5805 D app_process: I18n APEX ICU file found: /apex/com.android.i18n/etc/icu/icudt66l.dat
+11-20 12:35:24.138  5805  5805 W app_process: Unexpected CPU variant for X86 using defaults: x86
+11-20 12:35:24.139  5805  5805 I app_process: The ClassLoaderContext is a special shared library.
+11-20 12:35:24.146  5805  5805 W app_process: JNI RegisterNativeMethods: attempt to register 0 native methods for android.media.AudioAttributes
+11-20 12:35:24.149  5805  5805 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-20 12:35:24.164   284  3249 D goldfish-address-space: claimShared: Ask to claim region [0x3fb75d000 0x3fbf46000]
+11-20 12:35:24.183   473  3603 D HostConnection: HostConnection::get() New Host Connection established 0xf1637ad0, tid 3603
+11-20 12:35:24.190   473  3603 D HostConnection: HostComposition ext ANDROID_EMU_CHECKSUM_HELPER_v1 ANDROID_EMU_native_sync_v2 ANDROID_EMU_dma_v1 ANDROID_EMU_direct_mem ANDROID_EMU_host_composition_v1 ANDROID_EMU_host_composition_v2 ANDROID_EMU_vulkan ANDROID_EMU_deferred_vulkan_commands ANDROID_EMU_vulkan_null_optional_strings ANDROID_EMU_vulkan_create_resources_with_requirements ANDROID_EMU_YUV_Cache ANDROID_EMU_vulkan_ignored_handles ANDROID_EMU_has_shared_slots_host_memory_allocator ANDROID_EMU_vulkan_free_memory_sync ANDROID_EMU_vulkan_shader_float16_int8 ANDROID_EMU_vulkan_async_queue_submit ANDROID_EMU_sync_buffer_data ANDROID_EMU_vulkan_async_qsri ANDROID_EMU_read_color_buffer_dma ANDROID_EMU_hwc_color_transform ANDROID_EMU_hwc_display_power_mode GL_OES_EGL_image_external_essl3 GL_OES_vertex_array_object GL_KHR_texture_compression_astc_ldr ANDROID_EMU_host_side_tracing ANDROID_EMU_gles_max_version_3_0 
+11-20 12:35:24.195   473  1621 W InputReader: Device virtio_input_multi_touch_8 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:24.195   473  1621 W InputReader: Device virtio_input_multi_touch_9 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:24.195   473  1621 W InputReader: Device virtio_input_multi_touch_10 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:24.195   473  1621 W InputReader: Device virtio_input_multi_touch_7 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:24.195   473  1621 W InputReader: Device virtio_input_multi_touch_4 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:24.195   473  1621 W InputReader: Device virtio_input_multi_touch_11 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:24.195   473  1621 W InputReader: Device virtio_input_multi_touch_5 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:24.195   473  1621 W InputReader: Device virtio_input_multi_touch_6 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:24.195   473  1621 W InputReader: Device virtio_input_multi_touch_3 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:24.195   473  1621 W InputReader: Device virtio_input_multi_touch_2 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:24.195   473  1621 W InputReader: Device virtio_input_multi_touch_8 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:24.195   473  1621 W InputReader: Device virtio_input_multi_touch_9 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:24.195   473  1621 W InputReader: Device virtio_input_multi_touch_10 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:24.195   473  1621 W InputReader: Device virtio_input_multi_touch_7 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:24.195   473  1621 W InputReader: Device virtio_input_multi_touch_4 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:24.195   473  1621 W InputReader: Device virtio_input_multi_touch_11 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:24.195   473  1621 W InputReader: Device virtio_input_multi_touch_5 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:24.195   473  1621 W InputReader: Device virtio_input_multi_touch_6 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:24.195   473  1621 W InputReader: Device virtio_input_multi_touch_3 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:24.195   473  1621 W InputReader: Device virtio_input_multi_touch_2 is associated with display ADISPLAY_ID_NONE.
+11-20 12:35:24.197  5805  5805 D AndroidRuntime: Shutting down VM
+11-20 12:35:24.202   473  3603 D EGL_emulation: eglCreateContext: 0xf163a070: maj 3 min 0 rcv 3
+11-20 12:35:24.218   473  3603 D EGL_emulation: eglMakeCurrent: 0xf163a070: ver 3 0 (tinfo 0xb5401cf0) (first time)
+11-20 12:35:24.221   284  3249 D goldfish-address-space: claimShared: Ask to claim region [0x3fbf46000 0x3fbf68000]
+11-20 12:35:24.227  1371  5791 E ActivityThread: Failed to find provider info for tvlauncher.mic
+11-20 12:35:24.241  1371  1371 W HomeController: onResume: List view global layout completed.
+11-20 12:35:24.241   284  3249 D goldfish-address-space: claimShared: Ask to claim region [0x3f87e7000 0x3f8fd0000]
+11-20 12:35:24.242   284   284 D goldfish-address-space: claimShared: Ask to claim region [0x3fbf68000 0x3fbf8a000]
+11-20 12:35:24.245   284   306 D goldfish-address-space: claimShared: Ask to claim region [0x3f8fd0000 0x3f97b9000]
+11-20 12:35:24.246   284   306 D goldfish-address-space: claimShared: Ask to claim region [0x3f97b9000 0x3f9fa2000]
+11-20 12:35:24.290   284   284 D goldfish-address-space: claimShared: Ask to claim region [0x3fbf8a000 0x3fbfac000]
+11-20 12:35:24.426  1036  1036 I GoogleInputMethodService: GoogleInputMethodService.onFinishInput():3466 
+11-20 12:35:24.439  1036  1036 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():2045 
+11-20 12:35:24.447  1036  1036 I DeviceUnlockedTag: DeviceUnlockedTag.notifyDeviceLockStatusChanged():38 Notify device unlocked.
+11-20 12:35:24.617  4297  4297 I TvStock/Web: Web 服务已停止
+11-20 12:35:24.841  3781  3809 I GMS_MM_Logger: Memory Metric Logging not allowed. Stopping.
+11-20 12:35:26.190   473  3948 W NotificationService: Toast already killed. pkg=io.github.yixuexiaoao.tvstock token=android.os.BinderProxy@2cf8629
+11-20 12:35:27.592  1371  1371 E Clearcut-EventLogger: Unexpected log parameter tray_notification_count
+11-20 12:35:27.668   473  1117 E TaskPersister: File error accessing recents directory (directory doesn't exist?).
+11-20 12:35:27.683   473   504 W WindowManager: Unable to start animation, surface is null or no children.
+11-20 12:35:27.739  1482  1482 E adbd    : failed to connect to socket 'tcp:58080': Connection refused

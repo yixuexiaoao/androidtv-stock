@@ -1,0 +1,78 @@
+[   0s] 安装 probe-apk/androidtv-stock-0.0.1-probe.1-universal-release.apk
+[  25s] 截图：00-update-probe
+[  25s] 下载后的前台界面：    mResumedActivity: ActivityRecord{992ab3e u0 com.google.android.packageinstaller/com.android.packageinstaller.PackageInstallerActivity t6}
+[  25s] 通过：下载后自动弹出系统安装界面（未授权）
+[  27s] 确认按钮位置：1342 646
+[  35s] 截图：00a-unknown-sources-allowed
+[  35s] 开关状态：REQUEST_INSTALL_PACKAGES: deny; rejectTime=+13s936ms ago
+[  41s] 授权返回后的前台界面：    mResumedActivity: ActivityRecord{bc83ed0 u0 com.google.android.tvlauncher/.MainActivity t4}
+[  44s] 通过：重新打开 App 后自动弹出安装窗口
+[  46s] 截图：00b-installer-confirm
+[  48s] 确认按钮位置：1353 643
+[  52s] 截图：00c-after-install
+[  52s] 通过：App 内更新完成：0.0.1-probe.1 -> 1.3.0
+[  59s] 通过：下载走 API 资源地址
+[  60s] 安装 old-apk/old.apk
+[  67s] 通过：旧版本 1.3.0-pre.31 运行在端口 58080
+[  73s] 通过：更新包下载并校验通过
+[  75s] 截图：00-update-installer
+[  77s] 安装 new-apk/androidtv-stock-1.4.0-pre.33-universal-release.apk
+[  87s] 截图：01-first-run-guide
+[  87s] 通过：默认端口 58080
+[  87s] 通过：升级后持仓保留
+[  95s] 截图：01a-cloud-sectors
+[ 102s] 截图：01b-cloud-drill
+[ 113s] 截图：01c-cloud-us-sectors
+[ 117s] 截图：01d-cloud-us-drill
+[ 123s] 通过：加仓摊薄成本
+[ 123s] 通过：清仓计入已实现
+[ 123s] 通过：撤销记账
+[ 123s] 通过：无客户端头的写请求被拒绝
+[ 123s] 通过：后台页面可访问
+[ 135s] 通过：真实行情已获取（9 只）
+[ 143s] 截图：02-grid4-mixed
+[ 150s] 截图：03-layout-1plus5
+[ 155s] 截图：04-grid8-text
+[ 163s] 截图：05-grid4-kline
+[ 171s] 截图：06-grid16-minute
+[ 176s] 截图：06a-watch-heatmap
+[ 184s] 截图：07-focus-moved
+[ 189s] 截图：08-zoom-detail
+[ 195s] 截图：09-zoom-kline
+[ 200s] 截图：10-quick-menu
+[ 206s] 截图：11-settings
+[ 210s] 截图：12-settings-changed
+[ 214s] 截图：12a-settings-look
+[ 217s] 截图：12b-settings-market
+[ 220s] 截图：12c-settings-alert
+[ 222s] 截图：12d-settings-stocks
+[ 225s] 截图：12e-settings-keys
+[ 228s] 截图：12f-settings-system
+[ 232s] 截图：13-alert-up
+[ 234s] 截图：14-alert-fullscreen
+[ 237s] 截图：15-alert-dismissed
+[ 240s] 截图：16-theme-day
+[ 243s] 截图：17-theme-night
+[ 247s] 截图：18-privacy
+[ 251s] 通过：搜索到美股
+[ 263s] 通过：首次切到美股自动添加示例
+[ 263s] 通过：真实美股行情已获取（5 只）
+[ 263s] 通过：美股持仓单独汇总
+[ 263s] 截图：19-us-grid
+[ 271s] 截图：20-us-kline
+[ 276s] 截图：21-us-text
+[ 284s] 截图：22-us-minute
+[ 293s] 截图：23-us-zoom
+[ 307s] 截图：24-market-tabs-focus
+[ 312s] 通过：顶部标签切到 A 股
+[ 312s] 截图：25-back-to-cn
+[ 316s] 通过：* 键切到美股
+[ 324s] 通过：进程存活
+[ 324s] 通过：日志没有错误
+[ 327s] 通过：进入设置页时 Web 服务继续运行
+[ 334s] 通过：按主页键后 Web 服务关闭
+[ 339s] 通过：回到 App 后 Web 服务恢复（端口 58080）
+[ 343s] 通过：退出后 Web 服务关闭
+[ 343s] 通过：没有常驻服务
+[ 343s] 通过：没有崩溃
+[ 343s] 脚本结束
