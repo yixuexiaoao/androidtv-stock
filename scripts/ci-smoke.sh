@@ -271,8 +271,17 @@ fi
 # 关闭首次引导
 key KEYCODE_BACK
 
+# ---------- 默认大盘云图与下钻 ----------
+sleep 6
+shot 01a-cloud-sectors
+key KEYCODE_DPAD_CENTER
+sleep 5
+shot 01b-cloud-drill
+key KEYCODE_BACK
+sleep 1
+
 # ---------- Web API 与记账 ----------
-post /api/settings '{"guideShown":true,"alertTradingOnly":false,"refreshSec":3,"layoutId":"4","displayMode":"MIXED","screenMargin":16}' > /dev/null
+post /api/settings '{"homeTab":"WATCH","watchHeatmap":false,"guideShown":true,"alertTradingOnly":false,"refreshSec":3,"layoutId":"4","displayMode":"MIXED","screenMargin":16}' > /dev/null
 for body in \
   '{"code":"600519","costPrice":1400,"shares":100,"targetHigh":99999,"targetLow":1}' \
   '{"code":"000001","alias":"涨5%d测试","costPrice":10,"shares":1000}' \
@@ -309,7 +318,8 @@ post /api/settings '{"layoutId":"1+5"}' > /dev/null; sleep 6; shot 03-layout-1pl
 post /api/settings '{"layoutId":"8","displayMode":"TEXT"}' > /dev/null; sleep 5; shot 04-grid8-text
 post /api/settings '{"layoutId":"4","displayMode":"KLINE"}' > /dev/null; sleep 8; shot 05-grid4-kline
 post /api/settings '{"layoutId":"16","displayMode":"MINUTE"}' > /dev/null; sleep 8; shot 06-grid16-minute
-post /api/settings '{"layoutId":"4","displayMode":"MIXED"}' > /dev/null; sleep 5
+post /api/settings '{"watchHeatmap":true,"heatmapWeight":"CIRC_CAP"}' > /dev/null; sleep 4; shot 06a-watch-heatmap
+post /api/settings '{"watchHeatmap":false,"layoutId":"4","displayMode":"MIXED"}' > /dev/null; sleep 5
 
 # ---------- 遥控器 ----------
 key KEYCODE_DPAD_RIGHT
@@ -393,12 +403,14 @@ sleep 3
 shot 23-us-zoom
 key KEYCODE_BACK
 sleep 1
-# 遥控器切换：上键到顶部（4 画面最多两行，多按一次也停在顶部），左键移到 A股 标签，确认
+# 遥控器切换：上键到顶部（4 画面最多两行，多按一次也停在顶部），左键到最左（云图）再右移一格到 A股 标签，确认
 key KEYCODE_DPAD_UP
 key KEYCODE_DPAD_UP
 key KEYCODE_DPAD_UP
 key KEYCODE_DPAD_LEFT
 key KEYCODE_DPAD_LEFT
+key KEYCODE_DPAD_LEFT
+key KEYCODE_DPAD_RIGHT
 sleep 1
 shot 24-market-tabs-focus
 key KEYCODE_DPAD_CENTER

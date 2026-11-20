@@ -5,5 +5,7 @@
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">gtimg.cn</domain>
         <domain includeSubdomains="true">sinajs.cn</domain>
+        <domain includeSubdomains="true">sina.com.cn</domain>
+        <domain includeSubdomains="true">eastmoney.com</domain>
     </domain-config>
 </network-security-config>

@@ -20,11 +20,37 @@ data class Palette(
     val flat: Int,
     val accent: Int,
     val avgLine: Int,
+    val theme: String = Themes.DARK,
 ) {
     fun forChange(change: Double) = when {
         change > 0 -> up
         change < 0 -> down
         else -> flat
+    }
+
+    /**
+     * 热力图连续色阶（参考大盘云图 -4% ~ 0 ~ +4% 映射），自动跟随红涨绿跌与主题明暗。
+     * 平盘采用中性灰，涨跌幅越大饱和度与亮度越高。
+     */
+    fun heatColor(changePct: Double): Int {
+        val neutral = when (theme) {
+            Themes.LIGHT -> 0xFF94A3B8.toInt()
+            Themes.NIGHT -> 0xFF282522.toInt()
+            else -> 0xFF334155.toInt()
+        }
+        val mag = abs(changePct)
+        if (mag < 0.005) return neutral
+        val target = if (changePct > 0) up else down
+        // 非线性平滑映射：小波动有辨识度，≥ 4% 达到强饱和，≥ 9.5%（涨跌停）进一步提亮
+        val t = (mag / 4.0).coerceIn(0.0, 1.0)
+        val blend = (0.28 + 0.62 * t).toFloat()
+        val base = blendColor(neutral, target, blend)
+        return when {
+            theme == Themes.NIGHT -> dim(base, 0.78f)
+            theme == Themes.LIGHT -> base
+            mag >= 9.5 -> blendColor(base, 0xFFFFFFFF.toInt(), 0.14f)
+            else -> dim(base, 0.82f)
+        }
     }
 
     companion object {
@@ -49,18 +75,27 @@ data class Palette(
             val down = if (colorScheme == "GREEN_UP") red else green
             return when (theme) {
                 // 夜晚：整体压低亮度，暖色调，减少夜间刺眼
-                Themes.NIGHT -> Palette(c("#050403"), c("#0D0B09"), c("#1F1B17"), c("#A8A29E"), c("#6F6962"), c("#1C1916"), dim(up), dim(down), c("#857F78"), c("#B45309"), c("#8A6A2A"))
-                Themes.BLACK -> Palette(Color.BLACK, Color.BLACK, c("#262626"), Color.WHITE, c("#9CA3AF"), c("#1F1F1F"), up, down, c("#BDBDBD"), c("#4FC3F7"), c("#FFD54F"))
-                Themes.BLUE -> Palette(c("#071427"), c("#0D2140"), c("#1D3B66"), c("#F1F5F9"), c("#94A9C4"), c("#1A3357"), up, down, c("#B4C2D3"), c("#4FC3F7"), c("#FFD54F"))
-                Themes.LIGHT -> Palette(c("#E5E7EB"), c("#FFFFFF"), c("#CBD5E1"), c("#111827"), c("#6B7280"), c("#E5E7EB"), darken(up), darken(down), c("#6B7280"), c("#0284C7"), c("#B45309"))
-                else -> Palette(c("#0B0F14"), c("#141A22"), c("#232C38"), c("#F3F4F6"), c("#94A3B8"), c("#232C38"), up, down, c("#B0B8C4"), c("#4FC3F7"), c("#FFD54F"))
+                Themes.NIGHT -> Palette(c("#050403"), c("#0D0B09"), c("#1F1B17"), c("#A8A29E"), c("#6F6962"), c("#1C1916"), dim(up), dim(down), c("#857F78"), c("#B45309"), c("#8A6A2A"), theme)
+                Themes.BLACK -> Palette(Color.BLACK, Color.BLACK, c("#262626"), Color.WHITE, c("#9CA3AF"), c("#1F1F1F"), up, down, c("#BDBDBD"), c("#4FC3F7"), c("#FFD54F"), theme)
+                Themes.BLUE -> Palette(c("#071427"), c("#0D2140"), c("#1D3B66"), c("#F1F5F9"), c("#94A9C4"), c("#1A3357"), up, down, c("#B4C2D3"), c("#4FC3F7"), c("#FFD54F"), theme)
+                Themes.LIGHT -> Palette(c("#E5E7EB"), c("#FFFFFF"), c("#CBD5E1"), c("#111827"), c("#6B7280"), c("#E5E7EB"), darken(up), darken(down), c("#6B7280"), c("#0284C7"), c("#B45309"), theme)
+                else -> Palette(c("#0B0F14"), c("#141A22"), c("#232C38"), c("#F3F4F6"), c("#94A3B8"), c("#232C38"), up, down, c("#B0B8C4"), c("#4FC3F7"), c("#FFD54F"), Themes.DARK)
             }
         }
 
         private fun c(hex: String) = Color.parseColor(hex)
 
-        private fun dim(color: Int): Int =
-            Color.rgb((Color.red(color) * 0.68).toInt(), (Color.green(color) * 0.68).toInt(), (Color.blue(color) * 0.68).toInt())
+        private fun blendColor(a: Int, b: Int, ratio: Float): Int {
+            val inv = 1f - ratio
+            return Color.rgb(
+                (Color.red(a) * inv + Color.red(b) * ratio).toInt().coerceIn(0, 255),
+                (Color.green(a) * inv + Color.green(b) * ratio).toInt().coerceIn(0, 255),
+                (Color.blue(a) * inv + Color.blue(b) * ratio).toInt().coerceIn(0, 255),
+            )
+        }
+
+        private fun dim(color: Int, factor: Float = 0.68f): Int =
+            Color.rgb((Color.red(color) * factor).toInt(), (Color.green(color) * factor).toInt(), (Color.blue(color) * factor).toInt())
 
         private fun darken(color: Int): Int =
             Color.rgb((Color.red(color) * 0.8).toInt(), (Color.green(color) * 0.75).toInt(), (Color.blue(color) * 0.8).toInt())

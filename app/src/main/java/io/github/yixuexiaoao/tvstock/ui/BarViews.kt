@@ -7,6 +7,7 @@ import android.graphics.Typeface
 import android.view.View
 import io.github.yixuexiaoao.tvstock.data.MarketClock
 import io.github.yixuexiaoao.tvstock.model.AppConfig
+import io.github.yixuexiaoao.tvstock.model.HomeTabs
 import io.github.yixuexiaoao.tvstock.model.Markets
 import io.github.yixuexiaoao.tvstock.model.PortfolioSummary
 import io.github.yixuexiaoao.tvstock.model.Quote
@@ -75,7 +76,8 @@ class HeaderView(context: Context) : View(context) {
             canvas.drawText("网络异常", right, baseline, paint)
             right -= paint.measureText("网络异常") + gap
         }
-        val indices = if (s.showIndices) indexLabels(s.market) else emptyList()
+        val displayMarket = if (s.homeTab == HomeTabs.CLOUD) Markets.CN else s.market
+        val indices = if (s.showIndices) indexLabels(displayMarket) else emptyList()
         if (webUrl.isNotEmpty()) {
             val urlText = "后台 " + webUrl.removePrefix("http://")
             val urlW = paint.measureText(urlText) + gap
@@ -96,7 +98,7 @@ class HeaderView(context: Context) : View(context) {
             canvas.drawText(label, x, baseline, paint)
             x += w + gap
         }
-        if (s.showPortfolio && !s.privacy) {
+        if (s.showPortfolio && !s.privacy && s.homeTab != HomeTabs.CLOUD) {
             val usd = s.market == Markets.US
             // 人民币和美元不能相加，只汇总当前市场
             PortfolioSummary.of(config.stocks.filter { StockCodes.market(it.code) == s.market }, quotes)?.let { p ->

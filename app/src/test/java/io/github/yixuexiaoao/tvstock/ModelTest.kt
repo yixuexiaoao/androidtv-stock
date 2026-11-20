@@ -340,4 +340,23 @@ class ModelTest {
         assertFalse(MarketClock.isTradingTime(beijing(2026, 11, 7, 10, 0)))
         assertEquals("20261109", MarketClock.dateString(beijing(2026, 11, 9, 10, 0)))
     }
+
+    @Test fun heatmapSettingsDefaultsAndValidation() {
+        val d = AppSettings()
+        assertEquals("CLOUD", d.homeTab)
+        assertFalse(d.watchHeatmap)
+        assertEquals("SECTORS", d.cloudScope)
+        assertEquals("CIRC_CAP", d.heatmapWeight)
+
+        val valid = d.merged(JSONObject("""{"homeTab":"WATCH","watchHeatmap":true,"cloudScope":"HS300","heatmapWeight":"AMOUNT"}"""))
+        assertEquals("WATCH", valid.homeTab)
+        assertTrue(valid.watchHeatmap)
+        assertEquals("HS300", valid.cloudScope)
+        assertEquals("AMOUNT", valid.heatmapWeight)
+
+        val invalid = d.merged(JSONObject("""{"homeTab":"BAD","cloudScope":"NOPE","heatmapWeight":"NONE"}"""))
+        assertEquals("CLOUD", invalid.homeTab)
+        assertEquals("SECTORS", invalid.cloudScope)
+        assertEquals("CIRC_CAP", invalid.heatmapWeight)
+    }
 }

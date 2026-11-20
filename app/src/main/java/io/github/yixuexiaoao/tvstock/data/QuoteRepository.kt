@@ -2,6 +2,7 @@ package io.github.yixuexiaoao.tvstock.data
 
 import io.github.yixuexiaoao.tvstock.log.AppLog
 import io.github.yixuexiaoao.tvstock.model.AppConfig
+import io.github.yixuexiaoao.tvstock.model.HomeTabs
 import io.github.yixuexiaoao.tvstock.model.KLine
 import io.github.yixuexiaoao.tvstock.model.Markets
 import io.github.yixuexiaoao.tvstock.model.MinutePoint
@@ -51,6 +52,8 @@ class QuoteRepository(
     /** 界面当前需要图表的股票（由界面设置）。 */
     @Volatile var wantMinute: Set<String> = emptySet()
     @Volatile var wantKline: Set<String> = emptySet()
+    /** 临时放大查看的非自选股票代码（如从大盘云图点进详情），离开后置 null 停止拉取。 */
+    @Volatile var ephemeralCode: String? = null
 
     fun start() {
         if (started.compareAndSet(false, true)) schedule(0)
@@ -98,24 +101,30 @@ class QuoteRepository(
         return sec * 1000L
     }
 
+    /** 当前界面正在展示的市场（大盘云图对应 A 股指数）。 */
+    private fun activeMarket(cfg: AppConfig): String =
+        if (cfg.settings.homeTab == HomeTabs.CLOUD) Markets.CN else cfg.settings.market
+
     /** 决定刷新频率的市场：正在看的，以及设了提醒、需要及时判断的。 */
     private fun watchedMarkets(cfg: AppConfig): Set<String> {
         val everyStock = cfg.settings.speedPct > 0
         return cfg.stocks.filter { it.enabled && (everyStock || it.hasAlertRule) }
-            .map { StockCodes.market(it.code) }.toSet() + cfg.settings.market
+            .map { StockCodes.market(it.code) }.toSet() + activeMarket(cfg)
     }
 
     private fun pollOnce() {
         val cfg = config()
         val started = System.currentTimeMillis()
         val stocks = cfg.stocks.filter { it.enabled }.map { it.code }
+        val active = activeMarket(cfg)
         // 没在看又休市的市场，行情不会变，按非交易时段的间隔刷新一次就够了
         val fullDue = started - lastFullPollMs >= maxOf(cfg.settings.idleRefreshSec, FULL_POLL_MIN_SEC) * 1000L
         if (fullDue) lastFullPollMs = started
-        val markets = (stocks.map(StockCodes::market).toSet() + cfg.settings.market).filter {
-            fullDue || it == cfg.settings.market || MarketClock.isTradingTime(started, it)
+        val markets = (stocks.map(StockCodes::market).toSet() + active).filter {
+            fullDue || it == active || MarketClock.isTradingTime(started, it)
         }
-        val codes = (stocks.filter { StockCodes.market(it) in markets } + markets.flatMap { indexCodes(it) }).distinct()
+        val extra = listOfNotNull(ephemeralCode)
+        val codes = (stocks.filter { StockCodes.market(it) in markets } + extra + markets.flatMap { indexCodes(it) }).distinct()
         val list = QuoteApi.quotes(codes, cfg.settings.source)
         list.forEach { quotes[it.code] = it }
         lastSuccessMs = System.currentTimeMillis()

@@ -238,6 +238,12 @@ TABS.forEach(([id, label]) => {
 /* ---------- 通用设置表单 ---------- */
 const FORMS = () => ({
   displayForm: [
+    ['云图与热力图', [
+      ['homeTab', 'select', '电视首页视图', meta.homeTabs],
+      ['watchHeatmap', 'check', '自选行情切换为热力图（关闭则显示宫格）'],
+      ['cloudScope', 'select', '大盘云图范围', meta.cloudScopes],
+      ['heatmapWeight', 'select', '热力图面积指标', meta.heatmapWeights],
+    ]],
     ['图表与文字', [
       ['market', 'select', '电视首页市场', [{value:'CN',label:'A股'},{value:'US',label:'美股'}]],
       ['displayMode', 'select', '展示方式', meta.displayModes],
@@ -891,7 +897,7 @@ function renderQuick() {
   setText($('qPrivacy'), state.settings.privacy ? '关闭隐私模式' : '隐私模式');
   setText($('qMarket'), state.settings.market === 'US' ? '电视切到 A 股' : '电视切到美股');
 }
-$('qMarket').addEventListener('click', () => saveSettings({ market: state.settings.market === 'US' ? 'CN' : 'US' }).then(refresh).then(renderForms));
+$('qMarket').addEventListener('click', () => saveSettings({ homeTab: 'WATCH', market: state.settings.market === 'US' ? 'CN' : 'US' }).then(refresh).then(renderForms));
 $('qDismiss').addEventListener('click', () => api('/api/alert/dismiss', {}).then(() => toast('已关闭提醒')).catch(e => toast(e.message)));
 $('qMute').addEventListener('click', () => api('/api/alert/mute', { minutes: (state.status.muteRemainingMin || 0) > 0 ? 0 : 30 }).then(refresh).catch(e => toast(e.message)));
 $('qPrivacy').addEventListener('click', () => saveSettings({ privacy: !state.settings.privacy }).then(renderQuick));

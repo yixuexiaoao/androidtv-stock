@@ -256,6 +256,9 @@ class WebApiTest {
     @Test fun metaAndUnknownRoute() {
         val meta = get("/api/meta").obj()
         assertTrue(meta.getJSONArray("layouts").length() >= 16)
+        assertEquals(2, meta.getJSONArray("homeTabs").length())
+        assertEquals(5, meta.getJSONArray("cloudScopes").length())
+        assertEquals(4, meta.getJSONArray("heatmapWeights").length())
         assertEquals(404, get("/api/nope").status)
     }
 }

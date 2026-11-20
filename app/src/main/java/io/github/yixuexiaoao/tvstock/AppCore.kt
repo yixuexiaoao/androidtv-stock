@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import io.github.yixuexiaoao.tvstock.alert.AlertEngine
+import io.github.yixuexiaoao.tvstock.data.HeatmapRepository
 import io.github.yixuexiaoao.tvstock.data.QuoteApi
 import io.github.yixuexiaoao.tvstock.data.QuoteRepository
 import io.github.yixuexiaoao.tvstock.log.AppLog
@@ -31,6 +32,7 @@ object AppCore : WebBackend {
     interface Listener {
         fun onQuotes() {}
         fun onCharts() {}
+        fun onHeatmap() {}
         fun onConfig() {}
         fun onAlert(event: AlertEvent) {}
         fun onAlertsCleared() {}
@@ -41,6 +43,7 @@ object AppCore : WebBackend {
     private const val CHARTS_COALESCE_MS = 150L
     private val main = Handler(Looper.getMainLooper())
     private val chartsChanged = Runnable { listeners.forEach { it.onCharts() } }
+    private val heatmapChanged = Runnable { listeners.forEach { it.onHeatmap() } }
     private val io = Executors.newSingleThreadExecutor()
     private val listeners = CopyOnWriteArrayList<Listener>()
     private val engine = AlertEngine()
@@ -52,6 +55,8 @@ object AppCore : WebBackend {
     @Volatile private var muteUntilMs = 0L
     @Volatile private var cfg = AppConfig()
     lateinit var repo: QuoteRepository
+        private set
+    lateinit var heatmap: HeatmapRepository
         private set
 
     /** 当前正在提醒的事件（code -> 事件），仅主线程访问。 */
@@ -69,6 +74,13 @@ object AppCore : WebBackend {
             onCharts = {
                 main.removeCallbacks(chartsChanged)
                 main.postDelayed(chartsChanged, CHARTS_COALESCE_MS)
+            },
+        )
+        heatmap = HeatmapRepository(
+            refreshSec = { cfg.settings.refreshSec },
+            onUpdate = {
+                main.removeCallbacks(heatmapChanged)
+                main.post(heatmapChanged)
             },
         )
     }

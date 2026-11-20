@@ -246,13 +246,13 @@ object StockDialogs {
         builder(activity).setTitle("最近提醒").setItems(items, null).setPositiveButton("关闭", null).show()
     }
 
-    private const val HELP_TEXT = "方向键：移动焦点，左右到边缘时翻页\n" +
-        "确认键：放大或还原当前股票\n" +
-        "长按确认键：快捷菜单（加仓、提醒等）\n" +
-        "数字键：切换画面数，0 切换图文\n" +
-        "切换 A 股/美股：顶部标签、快捷菜单或 * 键\n" +
-        "频道键：翻页；菜单键：设置\n" +
-        "红键静音，绿键隐私，黄键排序，蓝键布局"
+    private const val HELP_TEXT = "方向键：移动焦点，左右到边缘时翻页，顶行按上键切顶部标签\n" +
+        "确认键：云图下钻行业/放大个股，宫格放大或还原当前股票\n" +
+        "长按确认键：快捷菜单（切换热力图、云图范围、加仓、提醒等）\n" +
+        "数字键：切换画面数，0 切换图文/退热力图\n" +
+        "顶部标签：云图 | A股 | 美股 | 设置；* 键切换市场\n" +
+        "频道键：翻页/切云图范围；菜单键：设置\n" +
+        "红键静音，绿键隐私，黄键排序/范围，蓝键布局/面积"
 
     fun menu(activity: Activity, title: String, items: List<Pair<String, () -> Unit>>) {
         builder(activity)

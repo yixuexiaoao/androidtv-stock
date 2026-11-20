@@ -5,8 +5,11 @@ import io.github.yixuexiaoao.tvstock.alert.SoundPresets
 import io.github.yixuexiaoao.tvstock.model.AlertEvent
 import io.github.yixuexiaoao.tvstock.model.AlertModes
 import io.github.yixuexiaoao.tvstock.model.AppConfig
+import io.github.yixuexiaoao.tvstock.model.CloudScopes
 import io.github.yixuexiaoao.tvstock.model.DisplayModes
+import io.github.yixuexiaoao.tvstock.model.HeatmapWeights
 import io.github.yixuexiaoao.tvstock.model.Holding
+import io.github.yixuexiaoao.tvstock.model.HomeTabs
 import io.github.yixuexiaoao.tvstock.model.Layouts
 import io.github.yixuexiaoao.tvstock.model.PortfolioSummary
 import io.github.yixuexiaoao.tvstock.model.Quote
@@ -268,6 +271,9 @@ class WebApi(private val backend: WebBackend) {
 
     private fun meta() = JSONObject().apply {
         put("layouts", JSONArray().also { arr -> Layouts.ALL.forEach { arr.put(it.toJson()) } })
+        put("homeTabs", labeled(HomeTabs.ALL, HomeTabs::label))
+        put("cloudScopes", labeled(CloudScopes.ALL, CloudScopes::label))
+        put("heatmapWeights", labeled(HeatmapWeights.ALL, HeatmapWeights::label))
         put("displayModes", labeled(DisplayModes.ALL, DisplayModes::label))
         put("alertModes", labeled(AlertModes.ALL, AlertModes::label))
         put("themes", labeled(Themes.ALL, Themes::label))
