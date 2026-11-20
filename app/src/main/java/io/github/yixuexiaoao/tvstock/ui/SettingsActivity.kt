@@ -32,6 +32,7 @@ import io.github.yixuexiaoao.tvstock.model.StockCodes
 import io.github.yixuexiaoao.tvstock.model.StockConfig
 import io.github.yixuexiaoao.tvstock.model.StockSort
 import io.github.yixuexiaoao.tvstock.model.Themes
+import io.github.yixuexiaoao.tvstock.model.UsCloudScopes
 import io.github.yixuexiaoao.tvstock.update.UpdateManager
 import org.json.JSONArray
 import org.json.JSONObject
@@ -154,7 +155,9 @@ class SettingsActivity : Activity(), AppCore.Listener {
                 Row("画面布局", { settings.effectiveLayout().name }, { d -> put("layoutId", stepped(layoutIds, settings.layoutId, d)) }),
                 toggle("自选显示热力图", { settings.watchHeatmap }, "watchHeatmap"),
                 choice("首页视图", HomeTabs.ALL, { settings.homeTab }, HomeTabs::label, "homeTab"),
-                choice("大盘云图范围", CloudScopes.ALL, { settings.cloudScope }, CloudScopes::label, "cloudScope"),
+                choice("大盘云图市场", Markets.ALL, { settings.cloudMarket }, Markets::label, "cloudMarket"),
+                choice("A股云图范围", CloudScopes.ALL, { settings.cloudScope }, CloudScopes::label, "cloudScope"),
+                choice("美股云图范围", UsCloudScopes.ALL, { settings.usCloudScope }, UsCloudScopes::label, "usCloudScope"),
                 choice("热力图面积指标", HeatmapWeights.ALL, { settings.heatmapWeight }, HeatmapWeights::label, "heatmapWeight"),
                 choice("展示方式", DisplayModes.ALL, { settings.displayMode }, DisplayModes::label, "displayMode"),
                 choice("K线周期", listOf("day", "week", "month"), { settings.klinePeriod }, { mapOf("day" to "日K", "week" to "周K", "month" to "月K")[it] ?: it }, "klinePeriod"),

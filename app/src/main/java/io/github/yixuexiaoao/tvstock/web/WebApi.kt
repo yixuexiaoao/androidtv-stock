@@ -19,6 +19,7 @@ import io.github.yixuexiaoao.tvstock.model.StockConfig
 import io.github.yixuexiaoao.tvstock.model.StockSort
 import io.github.yixuexiaoao.tvstock.model.TradeError
 import io.github.yixuexiaoao.tvstock.model.Trades
+import io.github.yixuexiaoao.tvstock.model.UsCloudScopes
 import io.github.yixuexiaoao.tvstock.model.optPositive
 import io.github.yixuexiaoao.tvstock.model.Themes
 import org.json.JSONArray
@@ -273,6 +274,7 @@ class WebApi(private val backend: WebBackend) {
         put("layouts", JSONArray().also { arr -> Layouts.ALL.forEach { arr.put(it.toJson()) } })
         put("homeTabs", labeled(HomeTabs.ALL, HomeTabs::label))
         put("cloudScopes", labeled(CloudScopes.ALL, CloudScopes::label))
+        put("usCloudScopes", labeled(UsCloudScopes.ALL, UsCloudScopes::label))
         put("heatmapWeights", labeled(HeatmapWeights.ALL, HeatmapWeights::label))
         put("displayModes", labeled(DisplayModes.ALL, DisplayModes::label))
         put("alertModes", labeled(AlertModes.ALL, AlertModes::label))

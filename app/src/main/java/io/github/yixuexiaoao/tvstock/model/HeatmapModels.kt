@@ -13,7 +13,7 @@ object HomeTabs {
     }
 }
 
-/** 大盘云图范围。 */
+/** A 股大盘云图范围。 */
 object CloudScopes {
     const val SECTORS = "SECTORS"
     const val HS300 = "HS300"
@@ -28,6 +28,23 @@ object CloudScopes {
         ALL_TOP -> "全A龙头"
         CYB -> "创业板"
         KCB -> "科创板"
+        else -> scope
+    }
+}
+
+/** 美股大盘云图范围。 */
+object UsCloudScopes {
+    const val SECTORS = "US_SECTORS"
+    const val TOP = "US_TOP"
+    const val NASDAQ = "US_NASDAQ"
+    const val CHINA = "US_CHINA"
+    val ALL = listOf(SECTORS, TOP, NASDAQ, CHINA)
+
+    fun label(scope: String) = when (scope) {
+        SECTORS -> "美股行业"
+        TOP -> "美股龙头"
+        NASDAQ -> "纳斯达克"
+        CHINA -> "中概股"
         else -> scope
     }
 }

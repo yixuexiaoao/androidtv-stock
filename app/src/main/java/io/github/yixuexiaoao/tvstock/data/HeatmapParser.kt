@@ -227,4 +227,119 @@ object HeatmapParser {
         }
         return out
     }
+
+    const val US_SECTOR_PREFIX = "US_SEC:"
+
+    /** 解析东方财富美股列表（m:105,m:106,m:107 / b:MK0201 等），自带中文名与 GICS 行业 f100。 */
+    fun parseEastMoneyUsStocks(text: String, weightMode: String = HeatmapWeights.CIRC_CAP): List<HeatmapItem> {
+        val diff = diffArray(text) ?: return emptyList()
+        val out = ArrayList<HeatmapItem>(diff.length())
+        for (i in 0 until diff.length()) {
+            val o = diff.optJSONObject(i) ?: continue
+            val rawCode = o.optString("f12").trim()
+            val code = StockCodes.normalize(rawCode) ?: continue
+            if (!StockCodes.isUs(code)) continue
+            val name = o.optString("f14").trim().ifEmpty { rawCode }
+            val price = num(o, "f2")
+            val pct = num(o, "f3")
+            val amount = num(o, "f6")
+            val totalCap = num(o, "f20")
+            val circCap = num(o, "f21").takeIf { it > 0.0 } ?: totalCap
+            val group = cleanGroupName(o.optString("f100")).ifEmpty { "其他" }
+            out += HeatmapItem(
+                id = code,
+                name = name,
+                changePct = pct,
+                weight = chooseWeight(weightMode, circCap, totalCap, amount),
+                price = price,
+                decimals = if (price > 0.0 && price < 1.0) 4 else 2,
+                amountYuan = amount,
+                circCapYuan = circCap,
+                groupName = group,
+                isSector = false,
+            )
+        }
+        return out
+    }
+
+    /** 解析新浪美股排行备源（US_CategoryService.getList JSONP）。 */
+    fun parseSinaUsStocks(text: String, weightMode: String = HeatmapWeights.CIRC_CAP): List<HeatmapItem> {
+        val start = text.indexOf('(')
+        val end = text.lastIndexOf(')')
+        if (start < 0 || end <= start) return emptyList()
+        val arr = JSONObject(text.substring(start + 1, end)).optJSONArray("data") ?: return emptyList()
+        val out = ArrayList<HeatmapItem>(arr.length())
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            val rawSym = o.optString("symbol").trim()
+            val code = StockCodes.normalize(rawSym) ?: continue
+            if (!StockCodes.isUs(code)) continue
+            val name = o.optString("cname").trim().ifEmpty { o.optString("name").trim() }.ifEmpty { rawSym }
+            val price = num(o, "price")
+            val pct = num(o, "chg")
+            val mktCap = num(o, "mktcap")
+            val vol = num(o, "volume")
+            val amount = if (price > 0.0 && vol > 0.0) price * vol else 0.0
+            val group = o.optString("category").trim().ifEmpty { "其他" }
+            out += HeatmapItem(
+                id = code,
+                name = name,
+                changePct = pct,
+                weight = chooseWeight(weightMode, mktCap, mktCap, amount),
+                price = price,
+                decimals = if (price > 0.0 && price < 1.0) 4 else 2,
+                amountYuan = amount,
+                circCapYuan = mktCap,
+                groupName = group,
+                isSector = false,
+            )
+        }
+        return out
+    }
+
+    /** 将美股龙头按所属行业聚合成一级行业宏观云图块（支持下钻查看行业内个股）。 */
+    fun aggregateUsSectors(stocks: List<HeatmapItem>): List<HeatmapItem> {
+        if (stocks.isEmpty()) return emptyList()
+        val buckets = LinkedHashMap<String, MutableList<HeatmapItem>>()
+        for (s in stocks) {
+            buckets.getOrPut(s.groupName.ifEmpty { "其他" }) { ArrayList() }.add(s)
+        }
+        return buckets.entries.map { (name, list) ->
+            var sumW = 0.0
+            var weightedPct = 0.0
+            var up = 0
+            var down = 0
+            var flat = 0
+            var sumAmt = 0.0
+            var sumCap = 0.0
+            var leader: HeatmapItem? = null
+            for (item in list) {
+                val w = if (item.weight > 0.0) item.weight else 1.0
+                sumW += w
+                weightedPct += item.changePct * w
+                sumAmt += item.amountYuan
+                sumCap += item.circCapYuan
+                when {
+                    item.changePct > 0.0 -> up++
+                    item.changePct < 0.0 -> down++
+                    else -> flat++
+                }
+                if (leader == null || item.changePct > leader.changePct) leader = item
+            }
+            HeatmapItem(
+                id = US_SECTOR_PREFIX + name,
+                name = name,
+                changePct = if (sumW > 0.0) weightedPct / sumW else 0.0,
+                weight = sumW,
+                amountYuan = sumAmt,
+                circCapYuan = sumCap,
+                upCount = up,
+                downCount = down,
+                flatCount = flat,
+                leaderName = leader?.name.orEmpty(),
+                leaderPct = leader?.changePct ?: 0.0,
+                isSector = true,
+            )
+        }.sortedByDescending { it.weight }
+    }
 }

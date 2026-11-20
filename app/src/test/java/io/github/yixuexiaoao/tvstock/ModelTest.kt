@@ -344,19 +344,25 @@ class ModelTest {
     @Test fun heatmapSettingsDefaultsAndValidation() {
         val d = AppSettings()
         assertEquals("CLOUD", d.homeTab)
+        assertEquals("CN", d.cloudMarket)
         assertFalse(d.watchHeatmap)
         assertEquals("SECTORS", d.cloudScope)
+        assertEquals("US_SECTORS", d.usCloudScope)
         assertEquals("CIRC_CAP", d.heatmapWeight)
 
-        val valid = d.merged(JSONObject("""{"homeTab":"WATCH","watchHeatmap":true,"cloudScope":"HS300","heatmapWeight":"AMOUNT"}"""))
+        val valid = d.merged(JSONObject("""{"homeTab":"WATCH","cloudMarket":"US","watchHeatmap":true,"cloudScope":"HS300","usCloudScope":"US_CHINA","heatmapWeight":"AMOUNT"}"""))
         assertEquals("WATCH", valid.homeTab)
+        assertEquals("US", valid.cloudMarket)
         assertTrue(valid.watchHeatmap)
         assertEquals("HS300", valid.cloudScope)
+        assertEquals("US_CHINA", valid.usCloudScope)
         assertEquals("AMOUNT", valid.heatmapWeight)
 
-        val invalid = d.merged(JSONObject("""{"homeTab":"BAD","cloudScope":"NOPE","heatmapWeight":"NONE"}"""))
+        val invalid = d.merged(JSONObject("""{"homeTab":"BAD","cloudMarket":"HK","cloudScope":"NOPE","usCloudScope":"BAD","heatmapWeight":"NONE"}"""))
         assertEquals("CLOUD", invalid.homeTab)
+        assertEquals("CN", invalid.cloudMarket)
         assertEquals("SECTORS", invalid.cloudScope)
+        assertEquals("US_SECTORS", invalid.usCloudScope)
         assertEquals("CIRC_CAP", invalid.heatmapWeight)
 
         assertTrue(StockCodes.isIndex("sh000001"))

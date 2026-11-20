@@ -204,12 +204,16 @@ object AlertModes {
 data class AppSettings(
     /** 首页当前标签：CLOUD（大盘云图，默认）或 WATCH（自选行情） */
     val homeTab: String = HomeTabs.CLOUD,
+    /** 大盘云图当前市场：CN（A股，默认）或 US（美股） */
+    val cloudMarket: String = Markets.CN,
     /** 首页显示哪个市场的自选股 */
     val market: String = Markets.CN,
     /** 自选行情是否切换为热力图（默认关，显示常规宫格行情） */
     val watchHeatmap: Boolean = false,
-    /** 大盘云图默认范围（默认行业宏观） */
+    /** A 股大盘云图默认范围（默认行业宏观） */
     val cloudScope: String = CloudScopes.SECTORS,
+    /** 美股大盘云图默认范围（默认美股行业） */
+    val usCloudScope: String = UsCloudScopes.SECTORS,
     /** 热力图面积指标（默认流通市值） */
     val heatmapWeight: String = HeatmapWeights.CIRC_CAP,
     val layoutId: String = "4",
@@ -275,9 +279,11 @@ data class AppSettings(
 
     fun toJson(): JSONObject = JSONObject().apply {
         put("homeTab", homeTab)
+        put("cloudMarket", cloudMarket)
         put("market", market)
         put("watchHeatmap", watchHeatmap)
         put("cloudScope", cloudScope)
+        put("usCloudScope", usCloudScope)
         put("heatmapWeight", heatmapWeight)
         put("layoutId", layoutId)
         customLayout?.let { put("customLayout", it.toJson()) }
@@ -344,9 +350,11 @@ data class AppSettings(
 
         return copy(
             homeTab = choice("homeTab", homeTab, HomeTabs.ALL),
+            cloudMarket = choice("cloudMarket", cloudMarket, Markets.ALL),
             market = choice("market", market, Markets.ALL),
             watchHeatmap = bool("watchHeatmap", watchHeatmap),
             cloudScope = choice("cloudScope", cloudScope, CloudScopes.ALL),
+            usCloudScope = choice("usCloudScope", usCloudScope, UsCloudScopes.ALL),
             heatmapWeight = choice("heatmapWeight", heatmapWeight, HeatmapWeights.ALL),
             layoutId = json.optString("layoutId", layoutId).takeIf { it == Layouts.CUSTOM_ID || Layouts.byId(it) != null } ?: layoutId,
             customLayout = json.optJSONObject("customLayout")?.let { GridLayoutDef.fromJson(it) } ?: customLayout,

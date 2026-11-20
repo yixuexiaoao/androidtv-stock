@@ -271,13 +271,23 @@ fi
 # 关闭首次引导
 key KEYCODE_BACK
 
-# ---------- 默认大盘云图与下钻 ----------
+# ---------- 默认大盘云图（A股 + 下钻 + 切换美股云图） ----------
 sleep 6
 shot 01a-cloud-sectors
 key KEYCODE_DPAD_CENTER
 sleep 5
 shot 01b-cloud-drill
 key KEYCODE_BACK
+sleep 1
+key KEYCODE_0
+sleep 6
+shot 01c-cloud-us-sectors
+key KEYCODE_DPAD_CENTER
+sleep 3
+shot 01d-cloud-us-drill
+key KEYCODE_BACK
+sleep 1
+key KEYCODE_0
 sleep 1
 
 # ---------- Web API 与记账 ----------

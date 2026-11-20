@@ -102,4 +102,40 @@ class HeatmapParserTest {
         assertEquals(9.14, stocks[0].price, 1e-6)
         assertEquals(246425562.2 * 10_000.0, stocks[0].circCapYuan, 10.0)
     }
+
+    @Test
+    fun parseEastMoneyUsAndAggregateGicsSectors() {
+        val sample = """
+            {"rc":0,"data":{"total":3,"diff":[
+              {"f12":"AAPL","f13":105,"f14":"苹果","f2":349.21,"f3":-0.92,"f6":14301192448.0,"f20":5074783276220,"f21":5074783276220,"f100":"信息技术"},
+              {"f12":"MSFT","f13":105,"f14":"微软","f2":498.3,"f3":1.5,"f6":14904513536.0,"f20":3700472745262,"f21":3700472745262,"f100":"信息技术"},
+              {"f12":"LLY","f13":106,"f14":"礼来","f2":1351.12,"f3":-2.29,"f6":4348373760.0,"f20":1271059426285,"f21":1271059426285,"f100":"医疗保健"}
+            ]}}
+        """.trimIndent()
+        val stocks = HeatmapParser.parseEastMoneyUsStocks(sample, HeatmapWeights.CIRC_CAP)
+        assertEquals(3, stocks.size)
+        assertEquals("usAAPL", stocks[0].id)
+        assertEquals("信息技术", stocks[0].groupName)
+
+        val sectors = HeatmapParser.aggregateUsSectors(stocks)
+        assertEquals(2, sectors.size)
+        assertEquals(HeatmapParser.US_SECTOR_PREFIX + "信息技术", sectors[0].id)
+        assertEquals("信息技术", sectors[0].name)
+        assertEquals(1, sectors[0].upCount)
+        assertEquals(1, sectors[0].downCount)
+        assertEquals("微软", sectors[0].leaderName)
+        assertTrue(sectors[0].isSector)
+    }
+
+    @Test
+    fun parseSinaUsFallback() {
+        val jsonp = """/*<script>*/IO({"count":"1","data":[{"name":"Apple Inc.","cname":"苹果公司","category":"计算机","symbol":"AAPL","price":"349.21","chg":"-0.92","volume":"40906840","mktcap":"5071586054264"}]})"""
+        val stocks = HeatmapParser.parseSinaUsStocks(jsonp, HeatmapWeights.CIRC_CAP)
+        assertEquals(1, stocks.size)
+        assertEquals("usAAPL", stocks[0].id)
+        assertEquals("苹果公司", stocks[0].name)
+        assertEquals("计算机", stocks[0].groupName)
+        assertEquals(-0.92, stocks[0].changePct, 1e-6)
+        assertEquals(5071586054264.0, stocks[0].circCapYuan, 10.0)
+    }
 }

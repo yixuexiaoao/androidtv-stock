@@ -38,6 +38,7 @@ import io.github.yixuexiaoao.tvstock.model.NavDir
 import io.github.yixuexiaoao.tvstock.model.StockCodes
 import io.github.yixuexiaoao.tvstock.model.StockConfig
 import io.github.yixuexiaoao.tvstock.model.StockSort
+import io.github.yixuexiaoao.tvstock.model.UsCloudScopes
 import io.github.yixuexiaoao.tvstock.update.UpdateManager
 import org.json.JSONObject
 import kotlin.math.max
@@ -59,6 +60,7 @@ class MainActivity : Activity(), AppCore.Listener {
     private val marketTabs = LinkedHashMap<String, TextView>()
     private var shownMarket = ""
     private var shownHomeTab = ""
+    private var shownCloudMarket = ""
     private var shownWatchHeatmap = false
     private lateinit var stage: FrameLayout
     private lateinit var grid: FrameLayout
@@ -230,7 +232,7 @@ class MainActivity : Activity(), AppCore.Listener {
 
     /** 规范要求静态界面不要一直阻止屏保；默认只在交易时段保持亮屏。 */
     private fun updateKeepScreen() {
-        val activeMarket = if (config.settings.homeTab == HomeTabs.CLOUD) Markets.CN else config.settings.market
+        val activeMarket = if (config.settings.homeTab == HomeTabs.CLOUD) config.settings.cloudMarket else config.settings.market
         val keep = when (config.settings.keepScreen) {
             "ALWAYS" -> true
             "NEVER" -> false
@@ -333,20 +335,23 @@ class MainActivity : Activity(), AppCore.Listener {
         val initial = shownHomeTab.isEmpty()
         val marketChanged = s.market != shownMarket
         val tabChanged = s.homeTab != shownHomeTab
+        val cloudMarketChanged = s.cloudMarket != shownCloudMarket
         val watchModeChanged = s.watchHeatmap != shownWatchHeatmap
-        if (marketChanged || tabChanged) {
+        if (marketChanged || tabChanged || cloudMarketChanged) {
             shownMarket = s.market
             shownHomeTab = s.homeTab
-            if (zoomCode != null) {
+            shownCloudMarket = s.cloudMarket
+            if (zoomCode != null && (marketChanged || tabChanged || zoomFromCloud)) {
                 zoomCode = null
                 zoomMode = ""
                 zoomFromCloud = false
                 AppCore.repo.ephemeralCode = null
             }
-            if (tabChanged && s.homeTab == HomeTabs.CLOUD) {
-                // 回到云图默认看行业宏观图
+            if ((tabChanged && s.homeTab == HomeTabs.CLOUD) || cloudMarketChanged) {
+                // 回到云图或切换云图市场时默认看该市场的行业宏观图
                 drillSectorId = null
                 drillSectorName = ""
+                lastSectorId = null
             }
             page = 0
         }
@@ -380,10 +385,10 @@ class MainActivity : Activity(), AppCore.Listener {
             bindCells()
         }
         refreshHeader()
-        if (marketChanged || tabChanged || watchModeChanged) {
+        if (marketChanged || tabChanged || cloudMarketChanged || watchModeChanged) {
             stage.post {
                 val activeTab = if (s.homeTab == HomeTabs.CLOUD) cloudTab else marketTabs[s.market]
-                val stayOnHeader = !initial && !watchModeChanged && (activeTab?.isFocused == true || gear.isFocused)
+                val stayOnHeader = !initial && !watchModeChanged && !cloudMarketChanged && (activeTab?.isFocused == true || gear.isFocused)
                 if (stayOnHeader) return@post
                 if (showingHeatmap()) {
                     heatmapView.requestFocus()
@@ -400,13 +405,16 @@ class MainActivity : Activity(), AppCore.Listener {
         grid.visibility = if (showHeat) View.GONE else View.VISIBLE
     }
 
+    private fun activeCloudScope(): String =
+        if (config.settings.cloudMarket == Markets.US) config.settings.usCloudScope else config.settings.cloudScope
+
     private fun syncHeatmapPolling(forceRefresh: Boolean = false) {
         if (!isActivityVisible || !isCloudActive()) {
             AppCore.heatmap.deactivate()
             return
         }
         val s = config.settings
-        AppCore.heatmap.activate(s.cloudScope, drillSectorId, drillSectorName, s.heatmapWeight, forceRefresh)
+        AppCore.heatmap.activate(s.cloudMarket, activeCloudScope(), drillSectorId, drillSectorName, s.heatmapWeight, forceRefresh)
     }
 
     private fun bindHeatmap() {
@@ -416,21 +424,29 @@ class MainActivity : Activity(), AppCore.Listener {
         if (s.homeTab == HomeTabs.CLOUD) {
             val repo = AppCore.heatmap
             val snap = repo.current()
-            val scopeLabel = CloudScopes.label(s.cloudScope)
-            val title = if (drillSectorId != null) "$drillSectorName › 成分股" else "A股大盘云图 · $scopeLabel"
+            val cm = s.cloudMarket
+            val isUs = cm == Markets.US
+            val scope = activeCloudScope()
+            val scopeLabel = if (isUs) UsCloudScopes.label(scope) else CloudScopes.label(scope)
+            val marketLabel = Markets.label(cm)
+            val otherLabel = Markets.label(Markets.other(cm))
+            val title = if (drillSectorId != null) {
+                "$marketLabel · $drillSectorName › 成分股"
+            } else {
+                "${marketLabel}大盘云图 · $scopeLabel"
+            }
             val wLabel = HeatmapWeights.label(if (s.heatmapWeight == HeatmapWeights.AMOUNT) HeatmapWeights.AMOUNT else HeatmapWeights.CIRC_CAP)
             val updated = if (snap != null && snap.fetchedAtMs > 0L) {
                 val src = if (snap.source.isNotEmpty()) "${snap.source} " else ""
-                src + MarketClock.timeString(snap.fetchedAtMs, Markets.CN).take(5)
+                src + MarketClock.timeString(snap.fetchedAtMs, cm).take(5)
             } else {
                 ""
             }
-            val hint = if (drillSectorId != null) {
-                "确认:放大  返回:行业  蓝键:面积"
-            } else if (s.cloudScope == CloudScopes.SECTORS) {
-                "确认:下钻行业  黄键:范围  蓝键:面积"
-            } else {
-                "确认:放大个股  黄键:范围  蓝键:面积"
+            val isSectorLevel = (isUs && scope == UsCloudScopes.SECTORS) || (!isUs && scope == CloudScopes.SECTORS)
+            val hint = when {
+                drillSectorId != null -> "确认:放大  返回:行业  */0键:切$otherLabel  蓝键:面积"
+                isSectorLevel -> "确认:下钻  */0键:切$otherLabel  黄键:范围  蓝键:面积"
+                else -> "确认:放大  */0键:切$otherLabel  黄键:范围  蓝键:面积"
             }
             heatmapView.bind(
                 title = title,
@@ -444,7 +460,7 @@ class MainActivity : Activity(), AppCore.Listener {
                 errorText = repo.lastError,
                 palette = palette,
                 fontScale = s.fontScale,
-                isUsd = false,
+                isUsd = isUs,
             )
         } else {
             bindWatchHeatmap(palette)
@@ -679,7 +695,7 @@ class MainActivity : Activity(), AppCore.Listener {
         header.webUrl = AppCore.webUrl
         header.error = repo.lastError
         val now = System.currentTimeMillis()
-        val market = if (config.settings.homeTab == HomeTabs.CLOUD) Markets.CN else config.settings.market
+        val market = if (config.settings.homeTab == HomeTabs.CLOUD) config.settings.cloudMarket else config.settings.market
         val status = MarketClock.status(now, repo.quotes[QuoteRepository.indexCodes(market).first()]?.tradeDate, market)
         header.marketActive = status == "交易中"
         header.marketText = if (market == Markets.US) "$status 美东 ${MarketClock.timeString(now, market).take(5)}" else status
@@ -896,14 +912,26 @@ class MainActivity : Activity(), AppCore.Listener {
         toast(if (next) "已切换自选热力图" else "已切回宫格看盘")
     }
 
+    private fun toggleCloudMarket() {
+        val next = Markets.other(config.settings.cloudMarket)
+        drillSectorId = null
+        drillSectorName = ""
+        lastSectorId = null
+        AppCore.updateSettings(JSONObject().put("homeTab", HomeTabs.CLOUD).put("cloudMarket", next))
+        toast("已切换到" + Markets.label(next) + "云图（按 */0 键切换）")
+    }
+
     private fun cycleCloudScope(delta: Int = 1) {
-        val scopes = CloudScopes.ALL
-        val idx = scopes.indexOf(config.settings.cloudScope).let { if (it < 0) 0 else it }
+        val isUs = config.settings.cloudMarket == Markets.US
+        val scopes = if (isUs) UsCloudScopes.ALL else CloudScopes.ALL
+        val cur = activeCloudScope()
+        val idx = scopes.indexOf(cur).let { if (it < 0) 0 else it }
         val next = scopes[Math.floorMod(idx + delta, scopes.size)]
         drillSectorId = null
         drillSectorName = ""
-        AppCore.updateSettings(JSONObject().put("cloudScope", next))
-        toast("云图范围：" + CloudScopes.label(next))
+        val key = if (isUs) "usCloudScope" else "cloudScope"
+        AppCore.updateSettings(JSONObject().put(key, next))
+        toast("云图范围：" + if (isUs) UsCloudScopes.label(next) else CloudScopes.label(next))
     }
 
     private fun cycleHeatmapWeight() {
@@ -976,8 +1004,15 @@ class MainActivity : Activity(), AppCore.Listener {
                 }
             }
             if (inCloud) {
+                val otherCloud = Markets.other(config.settings.cloudMarket)
+                add(("切换到" + Markets.label(otherCloud) + "云图（*/0键）") to ::toggleCloudMarket)
                 if (drillSectorId != null) add("返回行业宏观图" to ::leaveSectorDrill)
-                add(("切换云图范围（当前：" + CloudScopes.label(config.settings.cloudScope) + "）") to { cycleCloudScope() })
+                val curScopeLabel = if (config.settings.cloudMarket == Markets.US) {
+                    UsCloudScopes.label(config.settings.usCloudScope)
+                } else {
+                    CloudScopes.label(config.settings.cloudScope)
+                }
+                add(("切换云图范围（当前：$curScopeLabel）") to { cycleCloudScope() })
                 add(("切换面积指标（当前：" + HeatmapWeights.label(if (config.settings.heatmapWeight == HeatmapWeights.AMOUNT) HeatmapWeights.AMOUNT else HeatmapWeights.CIRC_CAP) + "）") to ::cycleHeatmapWeight)
                 add("立即刷新云图" to { syncHeatmapPolling(forceRefresh = true); toast("正在刷新云图…") })
                 add("切换到" + Markets.label(config.settings.market) + "自选" to { setMarket(config.settings.market, enterWatch = true) })
@@ -1226,16 +1261,16 @@ class MainActivity : Activity(), AppCore.Listener {
                 return true
             }
             KeyEvent.KEYCODE_0, KeyEvent.KEYCODE_NUMPAD_0 -> {
-                if (config.settings.homeTab == HomeTabs.WATCH && zoomCode == null && config.settings.watchHeatmap) {
-                    toggleWatchHeatmap()
-                } else {
-                    cycleDisplayMode()
+                when {
+                    isCloudActive() -> toggleCloudMarket()
+                    config.settings.homeTab == HomeTabs.WATCH && zoomCode == null && config.settings.watchHeatmap -> toggleWatchHeatmap()
+                    else -> cycleDisplayMode()
                 }
                 return true
             }
             KeyEvent.KEYCODE_STAR -> {
-                if (config.settings.homeTab == HomeTabs.CLOUD) {
-                    setMarket(config.settings.market, enterWatch = true)
+                if (isCloudActive()) {
+                    toggleCloudMarket()
                 } else {
                     setMarket(Markets.other(config.settings.market), enterWatch = true)
                 }

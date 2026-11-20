@@ -38,31 +38,42 @@ class HeatmapRepository(
     @Volatile var lastError: String? = null
         private set
 
+    @Volatile private var targetMarket = Markets.CN
     @Volatile private var targetScope = CloudScopes.SECTORS
     @Volatile private var targetSectorId: String? = null
     @Volatile private var targetSectorName = ""
     @Volatile private var targetWeight = HeatmapWeights.CIRC_CAP
+    @Volatile private var forceNext = false
     private var consecutiveFailures = 0
 
-    private fun cacheKey(scope: String, sectorId: String?, weight: String): String =
-        "$scope|${sectorId.orEmpty()}|$weight"
+    private fun cacheKey(market: String, scope: String, sectorId: String?, weight: String): String =
+        "$market|$scope|${sectorId.orEmpty()}|$weight"
 
     private fun effectiveWeight(weight: String): String =
         if (weight == HeatmapWeights.AMOUNT) HeatmapWeights.AMOUNT else HeatmapWeights.CIRC_CAP
 
     /** 当前目标对应的最新缓存快照（可能为 null 表示首次加载中）。 */
-    fun current(): HeatmapSnapshot? = cache[cacheKey(targetScope, targetSectorId, targetWeight)]
+    fun current(): HeatmapSnapshot? = cache[cacheKey(targetMarket, targetScope, targetSectorId, targetWeight)]
 
     /** 启动或切换云图目标；若缓存尚新鲜则不立即打网，仅按剩余时间调度。 */
     @Synchronized
-    fun activate(scope: String, sectorId: String?, sectorName: String, weight: String, forceRefresh: Boolean = false) {
+    fun activate(
+        market: String,
+        scope: String,
+        sectorId: String?,
+        sectorName: String,
+        weight: String,
+        forceRefresh: Boolean = false,
+    ) {
         val w = effectiveWeight(weight)
-        val changed = targetScope != scope || targetSectorId != sectorId || targetWeight != w
+        val changed = targetMarket != market || targetScope != scope || targetSectorId != sectorId || targetWeight != w
+        targetMarket = market
         targetScope = scope
         targetSectorId = sectorId
         targetSectorName = sectorName
         targetWeight = w
         active = true
+        if (forceRefresh) forceNext = true
         if (changed) {
             lastError = null
             consecutiveFailures = 0
@@ -90,7 +101,7 @@ class HeatmapRepository(
 
     private fun intervalMs(): Long {
         val now = System.currentTimeMillis()
-        val baseSec = if (MarketClock.isTradingTime(now, Markets.CN)) {
+        val baseSec = if (MarketClock.isTradingTime(now, targetMarket)) {
             maxOf(MIN_TRADING_SEC, refreshSec() * 4)
         } else {
             IDLE_SEC
@@ -105,16 +116,19 @@ class HeatmapRepository(
 
     private fun pollOnce() {
         if (!active) return
+        val market = targetMarket
         val scope = targetScope
         val sectorId = targetSectorId
         val sectorName = targetSectorName
         val weight = targetWeight
-        val key = cacheKey(scope, sectorId, weight)
+        val force = forceNext
+        forceNext = false
+        val key = cacheKey(market, scope, sectorId, weight)
         loading = true
         onUpdate()
         try {
             val started = System.currentTimeMillis()
-            val snap = HeatmapApi.load(scope, sectorId, sectorName, weight)
+            val snap = HeatmapApi.load(market, scope, sectorId, sectorName, weight, force)
             cache[key] = snap
             if (lastError != null) AppLog.i(TAG, "大盘云图恢复正常")
             lastError = null

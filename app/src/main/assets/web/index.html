@@ -240,8 +240,10 @@ const FORMS = () => ({
   displayForm: [
     ['云图与热力图', [
       ['homeTab', 'select', '电视首页视图', meta.homeTabs],
+      ['cloudMarket', 'select', '大盘云图市场', [{value:'CN',label:'A股'},{value:'US',label:'美股'}]],
+      ['cloudScope', 'select', 'A股云图范围', meta.cloudScopes],
+      ['usCloudScope', 'select', '美股云图范围', meta.usCloudScopes],
       ['watchHeatmap', 'check', '自选行情切换为热力图（关闭则显示宫格）'],
-      ['cloudScope', 'select', '大盘云图范围', meta.cloudScopes],
       ['heatmapWeight', 'select', '热力图面积指标', meta.heatmapWeights],
     ]],
     ['图表与文字', [

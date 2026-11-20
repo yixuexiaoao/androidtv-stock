@@ -101,9 +101,9 @@ class QuoteRepository(
         return sec * 1000L
     }
 
-    /** 当前界面正在展示的市场（大盘云图对应 A 股指数）。 */
+    /** 当前界面正在展示的市场（大盘云图跟随云图市场）。 */
     private fun activeMarket(cfg: AppConfig): String =
-        if (cfg.settings.homeTab == HomeTabs.CLOUD) Markets.CN else cfg.settings.market
+        if (cfg.settings.homeTab == HomeTabs.CLOUD) cfg.settings.cloudMarket else cfg.settings.market
 
     /** 决定刷新频率的市场：正在看的，以及设了提醒、需要及时判断的。 */
     private fun watchedMarkets(cfg: AppConfig): Set<String> {

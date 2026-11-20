@@ -76,7 +76,7 @@ class HeaderView(context: Context) : View(context) {
             canvas.drawText("网络异常", right, baseline, paint)
             right -= paint.measureText("网络异常") + gap
         }
-        val displayMarket = if (s.homeTab == HomeTabs.CLOUD) Markets.CN else s.market
+        val displayMarket = if (s.homeTab == HomeTabs.CLOUD) s.cloudMarket else s.market
         val indices = if (s.showIndices) indexLabels(displayMarket) else emptyList()
         if (webUrl.isNotEmpty()) {
             val urlText = "后台 " + webUrl.removePrefix("http://")

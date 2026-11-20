@@ -258,6 +258,7 @@ class WebApiTest {
         assertTrue(meta.getJSONArray("layouts").length() >= 16)
         assertEquals(2, meta.getJSONArray("homeTabs").length())
         assertEquals(5, meta.getJSONArray("cloudScopes").length())
+        assertEquals(4, meta.getJSONArray("usCloudScopes").length())
         assertEquals(4, meta.getJSONArray("heatmapWeights").length())
         assertEquals(404, get("/api/nope").status)
     }
